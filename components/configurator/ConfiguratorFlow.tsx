@@ -1,4 +1,5 @@
 "use client";
+import React from "react";
 import { useConfigStore } from "@/store/configuratorStore";
 import StepDimensions from "./StepDimensions";
 import StepSink       from "./StepSink";
@@ -23,6 +24,7 @@ const STEPS = [
 
 export default function ConfiguratorFlow() {
   const { step, setStep } = useConfigStore();
+    React.useEffect(() => { window.scrollTo({ top: 0, behavior: "smooth" }); }, [step]);
   const stepIndex = STEPS.findIndex((s) => s.id === step);
 
   return (

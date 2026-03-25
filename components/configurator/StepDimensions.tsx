@@ -70,8 +70,8 @@ export default function StepDimensions() {
                 type="number"
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 focus:outline-none focus:border-gray-900 transition-all"
                 min={120} max={400} step={5}
-                value={dimensions.wallB ?? 160}
-                onChange={(e) => setDimensions({ wallB: +e.target.value })}
+                value={dimensions.wallB ?? ""}
+                onChange={(e) => setDimensions({ wallB: e.target.value === "" ? undefined : +e.target.value })}
               />
             </div>
             <div>
