@@ -1,0 +1,102 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-display: 'Cormorant Garamond', Georgia, serif;
+  --font-body: 'DM Sans', sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html {
+  font-family: var(--font-body);
+  background: #F5F0E8;
+  color: #0F0E0D;
+  -webkit-font-smoothing: antialiased;
+}
+
+.step-dot {
+  @apply w-2 h-2 rounded-full transition-all duration-300;
+}
+.step-dot.active  { @apply bg-asab-accent w-6; }
+.step-dot.done    { @apply bg-asab-accent; }
+.step-dot.pending { @apply bg-asab-warm; }
+
+.field {
+  @apply w-full bg-white border border-asab-warm/40 rounded-lg px-4 py-3
+         text-asab-black placeholder-asab-stone/50 font-body text-base
+         focus:outline-none focus:border-asab-accent transition-colors;
+}
+
+.field-label {
+  @apply block text-xs font-medium tracking-widest uppercase text-asab-stone mb-2;
+}
+
+.btn-primary {
+  @apply w-full bg-asab-black text-asab-cream font-body font-medium
+         tracking-wide py-4 rounded-xl text-sm uppercase
+         hover:bg-asab-accent transition-colors duration-200
+         disabled:opacity-40 disabled:cursor-not-allowed;
+}
+
+.btn-secondary {
+  @apply w-full border border-asab-black text-asab-black font-body font-medium
+         tracking-wide py-3.5 rounded-xl text-sm uppercase
+         hover:bg-asab-black hover:text-asab-cream transition-colors duration-200;
+}
+
+.card {
+  @apply bg-white rounded-2xl border border-asab-warm/30 p-6;
+}
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #C8B89A; border-radius: 2px; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Mobile touch targets */
+button { min-height: 44px; }
+.step-dot { min-height: unset; }
+
+/* Smooth snap for colorway scroll */
+.snap-scroll {
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+.snap-scroll > * {
+  scroll-snap-align: start;
+}
+
+/* iOS zoom prevention - must be 16px on input focus */
+input, select, textarea {
+  font-size: 16px !important;
+  touch-action: manipulation;
+}
+
+/* Gesture hint animations */
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to   { opacity: 0; pointer-events: none; }
+}
+@keyframes orbitFinger {
+  0%   { transform: translate(-50%, -50%) rotate(0deg)   translateX(20px); }
+  100% { transform: translate(-50%, -50%) rotate(360deg) translateX(20px); }
+}
+@keyframes panFinger1 {
+  0%, 100% { transform: translateX(0); }
+  50%      { transform: translateX(18px); }
+}
+@keyframes panFinger2 {
+  0%, 100% { transform: translateX(0); }
+  50%      { transform: translateX(18px); }
+}
+@keyframes dashMove {
+  from { stroke-dashoffset: 0; }
+  to   { stroke-dashoffset: -20; }
+}
