@@ -29,6 +29,7 @@ export function snapDimension(raw: number): number {
 
 export function decomposeWall(wallLength: number): number[] {
   const sorted = [...BASE_WIDTHS].sort((a, b) => b - a);
+  
   function solve(remaining: number): number[] | null {
     if (remaining === 0) return [];
     if (remaining < 40) return null;
@@ -40,7 +41,23 @@ export function decomposeWall(wallLength: number): number[] {
     }
     return null;
   }
-  return solve(wallLength) ?? [];
+
+  // Try exact fit first
+  const exact = solve(wallLength);
+  if (exact) return exact;
+
+  // No exact fit — find the largest combination that fits within wallLength
+  function bestFit(remaining: number): number[] {
+    if (remaining < 40) return [];
+    for (const w of sorted) {
+      if (w <= remaining) {
+        return [w, ...bestFit(remaining - w)];
+      }
+    }
+    return [];
+  }
+
+  return bestFit(wallLength);
 }
 
 function autoPlaceAppliances(
