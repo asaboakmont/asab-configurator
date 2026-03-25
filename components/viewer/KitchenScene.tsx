@@ -58,11 +58,11 @@ export default function KitchenScene({ cabinets, colorway, wallA, wallB, cornerS
         <CabinetMesh key={i} cabinet={cab} colorway={colorway} wallA={wallA} cornerSide={cornerSide} />
       ))}
 
-      {cabinets
-        .filter(c => !["wall","wall-corner","wall-hood","tall","tall-oven","tall-fridge"].includes(c.type))
-        .map((cab, i) => (
-          <WorktopSlice key={`wt-${i}`} cabinet={cab} colorway={colorway} wallA={wallA} />
-        ))}
+      <WorktopMerged
+          cabinets={cabinets.filter(c => !["wall","wall-corner","wall-hood","tall","tall-oven","tall-fridge"].includes(c.type))}
+          colorway={colorway}
+          wallA={wallA}
+        />
       <Environment preset="apartment" background={false} />
     </Canvas>
   );
@@ -332,7 +332,8 @@ function CabinetMesh({ cabinet, colorway, wallA, cornerSide = "right" }: { cabin
 
   // Use GLB only for Wall A cabinets - Wall B/C use box geometry
   const isCorner = type === "base-corner" || type === "wall-corner";
-  const hasModel = MODEL_SKUS.includes(cabinet.sku) && !isCorner;
+  const BROKEN_SKUS = ["1011B"];
+  const hasModel = MODEL_SKUS.includes(cabinet.sku) && !isCorner && !BROKEN_SKUS.includes(cabinet.sku);
 
 
   if (hasModel) {
@@ -342,8 +343,14 @@ function CabinetMesh({ cabinet, colorway, wallA, cornerSide = "right" }: { cabin
     const glbDepth = depth * CM;
 
     let glbPosX = posX - glbWidth / 2;
-    const glbPosY = posY - glbHeight / 2;
+    let glbPosY = posY - glbHeight / 2;
     let glbPosZ = posZ - glbDepth / 2;
+
+    // Dishwasher: move 53cm out from the back wall and raise 10cm from floor
+    if (type === "base-dishwasher" && cabinet.wall === "A") {
+      glbPosZ = 53 * CM;
+      glbPosY += 10 * CM;
+    }
 
     // Wall B/C non-corner cabinets can use GLBs too.
     // Corner cabinets stay on box geometry because hasModel is false for them.
@@ -452,19 +459,17 @@ function CabinetMesh({ cabinet, colorway, wallA, cornerSide = "right" }: { cabin
           </group>
         </>
       )}
-      {/* Dishwasher front */}
+      {/* Dishwasher front — raised 10cm from plinth, inset 54cm from wall */}
       {type === "base-dishwasher" && (
-        <mesh castShadow material={doorMat} position={[0, -PLINTH_H/2, D/2 + T/2]}>
-          <boxGeometry args={[W - T*2 - DOOR_GAP, H - T*2 - PLINTH_H - DOOR_GAP, T]} />
+        <mesh castShadow material={doorMat} position={[0, -PLINTH_H/2 + 10*CM, D/2 + T/2]}>
+          <boxGeometry args={[W - T*2 - DOOR_GAP, H - T*2 - PLINTH_H - DOOR_GAP - 10*CM, T]} />
         </mesh>
       )}
     </group>
   );
 }
 
-function WorktopSlice({ cabinet, colorway, wallA }: { cabinet: Cabinet; colorway: Colorway; wallA: number }) {
-  const { width, xPos, wall } = cabinet;
-
+function WorktopMerged({ cabinets, colorway, wallA }: { cabinets: Cabinet[]; colorway: Colorway; wallA: number }) {
   const mat = useMemo(() =>
     new THREE.MeshStandardMaterial({ color: colorway.worktopHex, roughness: 0.25, metalness: 0.05 }),
     [colorway.worktopHex]);
@@ -472,32 +477,35 @@ function WorktopSlice({ cabinet, colorway, wallA }: { cabinet: Cabinet; colorway
   const wT = RULES.WORKTOP_THICKNESS * CM;
   const wD = RULES.WORKTOP_DEPTH * CM;
 
-  if (cabinet.wall === "B") {
-    // Wall B: left wall, worktop depth goes in +X direction
-    return (
-      <mesh material={mat} castShadow
-        position={[WORKTOP_Z, WORKTOP_Y, xPos * CM + (width * CM) / 2]}>
-        <boxGeometry args={[wD, wT, width * CM]} />
-      </mesh>
-    );
-  }
-
-  if (cabinet.wall === "C") {
-    // Wall C: right wall, worktop extends in -X direction from wallA
-    return (
-      <mesh material={mat} castShadow
-        position={[wallA * CM - WORKTOP_Z, WORKTOP_Y, xPos * CM + (width * CM) / 2]}>
-        <boxGeometry args={[wD, wT, width * CM]} />
-      </mesh>
-    );
-  }
-
-  // Wall A: worktop slice runs along X
   return (
-    <mesh material={mat} castShadow
-      position={[xPos * CM + (width * CM) / 2, WORKTOP_Y, WORKTOP_Z]}>
-      <boxGeometry args={[width * CM, wT, wD]} />
-    </mesh>
+    <>
+      {(["A", "B", "C"] as const).map(wall => {
+        const wallCabs = cabinets.filter(c => c.wall === wall);
+        if (wallCabs.length === 0) return null;
+        const minX = Math.min(...wallCabs.map(c => c.xPos));
+        const maxX = Math.max(...wallCabs.map(c => c.xPos + c.width));
+        const totalWidth = (maxX - minX) * CM;
+        const centerX = (minX + (maxX - minX) / 2) * CM;
+        if (wall === "B") return (
+          <mesh key="wt-B" material={mat} castShadow
+            position={[WORKTOP_Z, WORKTOP_Y, centerX]}>
+            <boxGeometry args={[wD, wT, totalWidth]} />
+          </mesh>
+        );
+        if (wall === "C") return (
+          <mesh key="wt-C" material={mat} castShadow
+            position={[wallA * CM - WORKTOP_Z, WORKTOP_Y, centerX]}>
+            <boxGeometry args={[wD, wT, totalWidth]} />
+          </mesh>
+        );
+        return (
+          <mesh key="wt-A" material={mat} castShadow
+            position={[centerX, WORKTOP_Y, WORKTOP_Z]}>
+            <boxGeometry args={[totalWidth, wT, wD]} />
+          </mesh>
+        );
+      })}
+    </>
   );
 }
 
