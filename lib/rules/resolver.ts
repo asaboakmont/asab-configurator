@@ -29,7 +29,6 @@ export function snapDimension(raw: number): number {
 
 export function decomposeWall(wallLength: number): number[] {
   const sorted = [...BASE_WIDTHS].sort((a, b) => b - a);
-  
   function solve(remaining: number): number[] | null {
     if (remaining === 0) return [];
     if (remaining < 40) return null;
@@ -41,22 +40,15 @@ export function decomposeWall(wallLength: number): number[] {
     }
     return null;
   }
-
-  // Try exact fit first
   const exact = solve(wallLength);
   if (exact) return exact;
-
-  // No exact fit — find the largest combination that fits within wallLength
   function bestFit(remaining: number): number[] {
     if (remaining < 40) return [];
     for (const w of sorted) {
-      if (w <= remaining) {
-        return [w, ...bestFit(remaining - w)];
-      }
+      if (w <= remaining) return [w, ...bestFit(remaining - w)];
     }
     return [];
   }
-
   return bestFit(wallLength);
 }
 
@@ -107,18 +99,16 @@ function autoPlaceAppliances(
   const fitsRemaining = wallLength - fitsTotal;
   const fillersFit = fitsRemaining > 0 ? decomposeWall(fitsRemaining) : [];
 
-  const leftFillers = fillersFit.slice(0, Math.floor(fillersFit.length / 2));
-  const rightFillers = fillersFit.slice(Math.floor(fillersFit.length / 2));
-  const allWidths = [...leftFillers, ...fitsWidths, ...rightFillers];
+  // All fillers go to the RIGHT of appliances — gap at right end, not between cabs
+  const allWidths = [...fitsWidths, ...fillersFit];
 
   const positions: number[] = [];
   let cur = startX;
   for (const w of allWidths) { positions.push(cur); cur += w; }
 
-  const reqStart = leftFillers.length;
   for (let i = 0; i < fitsOnWall.length; i++) {
     const [cabType] = fitsOnWall[i];
-    placements.set(positions[reqStart + i], cabType);
+    placements.set(positions[i], cabType);
   }
 
   return { placements, customWidths: allWidths, overflow: overflowRequired };
@@ -231,16 +221,18 @@ export function resolveLayout(
   }
   buildBaseRun({ wallId: "A", wallLength: baseLength, startX: baseStartX, placements: basePlacements, cabinets, customWidths: baseWidths });
 
-  // Tall cabs
+  // Tall cabs: placed at right end (Wall B) or left end (Wall C)
+  // Tall cabs: start exactly where base run ends
+  const actualBaseEnd = baseStartX + baseWidths.reduce((s, w) => s + w, 0);
   tallList.forEach((t, i) => {
     const prevW = tallList.slice(0, i).reduce((s, c) => s + c.width, 0);
-    const tallX = cornerAtLeft ? baseEndX + prevW : prevW;
+    const tallX = cornerAtLeft ? actualBaseEnd + prevW : prevW;
     cabinets.push({ ...t, xPos: tallX });
   });
 
-  // Wall A wall run
+  // Wall A wall run — same width as base run, no tall zone
   const wallRunStartX = cornerAtLeft ? cornerGap : tallWidth;
-  const wallRunLen    = wallA - tallWidth - (layout === "l-shape" ? cornerGap : 0);
+  const wallRunLen    = baseLength; // match base run exactly, not wallA
   const hobPlacement  = appliances.hasHob && appliances.hasHood
     ? autoPlaceHobWall(basePlacements) : new Map<number, Cabinet["type"]>();
   buildWallRun({ wallId: "A", wallLength: wallRunLen, startX: wallRunStartX, placements: hobPlacement, cabinets, customWidths: baseWidths });
