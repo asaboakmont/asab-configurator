@@ -166,6 +166,7 @@ function Room({
 
 const MODEL_SKUS = [
   "1003",
+  "1001-DR",
   "1003-HOB-60",
   "1003-HOB-80",
   "1004",
@@ -226,7 +227,13 @@ function CabinetMeshGLB({
 }) {
   const { sku } = cabinet;
   const [meshes, setMeshes] = React.useState<
-    { geometry: THREE.BufferGeometry; matName: string }[]
+    {
+      geometry: THREE.BufferGeometry;
+      matName: string;
+      position: [number, number, number];
+      rotation: [number, number, number];
+      scale: [number, number, number];
+    }[]
   >([]);
 
   const carcassMat = useMemo(
@@ -289,6 +296,21 @@ function CabinetMeshGLB({
     []
   );
 
+  const ovenMat = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: "#1A1A1A",
+        roughness: 0.35,
+        metalness: 0.65,
+        envMapIntensity: 1.4,
+        depthWrite: true,
+        depthTest: true,
+        transparent: false,
+        side: THREE.DoubleSide,
+      }),
+    []
+  );
+
   React.useEffect(() => {
     fetch(`/models/${sku}.glb`)
       .then((r) => r.arrayBuffer())
@@ -300,15 +322,32 @@ function CabinetMeshGLB({
           buffer,
           `/models/`,
           (gltf: any) => {
-            const found: { geometry: THREE.BufferGeometry; matName: string }[] = [];
+            const found: {
+              geometry: THREE.BufferGeometry;
+              matName: string;
+              position: [number, number, number];
+              rotation: [number, number, number];
+              scale: [number, number, number];
+            }[] = [];
+
+            gltf.scene.updateMatrixWorld(true);
+
             gltf.scene.traverse((child: any) => {
               if (child.isMesh) {
                 const matName = Array.isArray(child.material)
                   ? child.material[0]?.name
                   : child.material?.name ?? "carcass";
-                found.push({ geometry: child.geometry, matName });
+
+                found.push({
+                  geometry: child.geometry,
+                  matName,
+                  position: [child.position.x, child.position.y, child.position.z],
+                  rotation: [child.rotation.x, child.rotation.y, child.rotation.z],
+                  scale: [child.scale.x, child.scale.y, child.scale.z],
+                });
               }
             });
+
             setMeshes(found);
           },
           (err: any) => console.error(`Failed parse ${sku}:`, err)
@@ -322,6 +361,7 @@ function CabinetMeshGLB({
     door: doorMat,
     handle: handleMat,
     plinth: plinthMat,
+    oven: ovenMat,
   };
 
   if (meshes.length === 0) return null;
@@ -333,21 +373,23 @@ function CabinetMeshGLB({
   return (
     <group position={[posX, posY, posZ]} rotation={[0, rotY, 0]}>
       {(() => {
-        const carcassMeshes = meshes.filter((m) => m.matName !== "door" && m.matName !== "handle");
+        const nonDoorMeshes = meshes.filter((m) => !["door", "handle"].includes(m.matName));
         const doorMeshes = meshes.filter((m) => m.matName === "door" || m.matName === "handle");
 
         return (
           <>
-            {carcassMeshes.map((m, i) => (
+            {nonDoorMeshes.map((m, i) => (
               <mesh
                 key={"c" + i}
                 geometry={m.geometry}
                 material={matMap[m.matName] ?? carcassMat}
-                scale={[10, 10, 10]}
+                position={m.position}
+                rotation={m.rotation}
+                scale={[m.scale[0] * 10, m.scale[1] * 10, m.scale[2] * 10]}
                 castShadow
                 receiveShadow
                 frustumCulled={false}
-                renderOrder={0}
+                renderOrder={m.matName === "handle" ? HANDLE_RENDER_ORDER : 0}
               />
             ))}
 
@@ -362,7 +404,9 @@ function CabinetMeshGLB({
                       key={"d" + i}
                       geometry={m.geometry}
                       material={matMap[m.matName] ?? carcassMat}
-                      scale={[10, 10, 10]}
+                      position={m.position}
+                      rotation={m.rotation}
+                      scale={[m.scale[0] * 10, m.scale[1] * 10, m.scale[2] * 10]}
                       castShadow
                       receiveShadow
                       frustumCulled={false}
@@ -377,7 +421,9 @@ function CabinetMeshGLB({
                   key={"d" + i}
                   geometry={m.geometry}
                   material={matMap[m.matName] ?? carcassMat}
-                  scale={[10, 10, 10]}
+                  position={m.position}
+                  rotation={m.rotation}
+                  scale={[m.scale[0] * 10, m.scale[1] * 10, m.scale[2] * 10]}
                   castShadow
                   receiveShadow
                   frustumCulled={false}
@@ -507,11 +553,14 @@ function CabinetMesh({
     transparent: false,
   });
 
-  const isCorner = type === "base-corner" || type === "wall-corner";
-  const BROKEN_SKUS = ["1011B"];
-  const hasModel =
-    MODEL_SKUS.includes(cabinet.sku) && !isCorner && !BROKEN_SKUS.includes(cabinet.sku);
+const CORNER_MODEL_SKUS = ["1001-DR"];
+const isCorner = type === "base-corner" || type === "wall-corner";
+const BROKEN_SKUS = ["1011B"];
 
+const hasModel =
+  MODEL_SKUS.includes(cabinet.sku) &&
+  (!isCorner || CORNER_MODEL_SKUS.includes(cabinet.sku)) &&
+  !BROKEN_SKUS.includes(cabinet.sku);
   if (hasModel) {
     const glbWidth = width * CM;
     const glbHeight = height * CM;
