@@ -167,6 +167,8 @@ function Room({
 const MODEL_SKUS = [
   "1003",
   "1001-DR",
+  "2001-DR",
+  "1001-STG",
   "1003-HOB-60",
   "1003-HOB-80",
   "1004",
@@ -217,6 +219,7 @@ function CabinetMeshGLB({
   posY,
   posZ,
   rotY,
+
 }: {
   cabinet: Cabinet;
   colorway: Colorway;
@@ -457,9 +460,9 @@ function CabinetMesh({
 
   if (cabinet.wall === "B") {
     if (type === "base-corner" || type === "wall-corner") {
-      posX = isWallCab ? WALL_Z : BASE_Z;
-      posZ = (width / 2) * CM;
-      rotY = Math.PI / 2;
+      posX = RULES.CORNER_BASE_OFFSET * CM + (width * CM) / 2;
+      posZ = isWallCab ? WALL_Z : BASE_Z;
+      rotY = 0;
     } else {
       posX = isWallCab ? WALL_Z : BASE_Z;
       posZ = xPos * CM + (width * CM) / 2;
@@ -467,9 +470,9 @@ function CabinetMesh({
     }
   } else if (cabinet.wall === "C") {
     if (type === "base-corner" || type === "wall-corner") {
-      posX = wallA * CM - (isWallCab ? WALL_Z : BASE_Z);
-      posZ = (width / 2) * CM;
-      rotY = -Math.PI / 2;
+      posX = wallA * CM - RULES.CORNER_BASE_OFFSET * CM - (width * CM) / 2;
+      posZ = isWallCab ? WALL_Z : BASE_Z;
+      rotY = 0;
     } else {
       posX = wallA * CM - (isWallCab ? WALL_Z : BASE_Z);
       posZ = xPos * CM + (width * CM) / 2;
@@ -553,12 +556,11 @@ function CabinetMesh({
     transparent: false,
   });
 
-const CORNER_MODEL_SKUS = ["1001-DR"];
 const isCorner = type === "base-corner" || type === "wall-corner";
 const BROKEN_SKUS: string[] = [];
+
 const hasModel =
   MODEL_SKUS.includes(cabinet.sku) &&
-  (!isCorner || CORNER_MODEL_SKUS.includes(cabinet.sku)) &&
   !BROKEN_SKUS.includes(cabinet.sku);
   if (hasModel) {
     const glbWidth = width * CM;
