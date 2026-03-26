@@ -555,7 +555,7 @@ function CabinetMesh({
 
 const CORNER_MODEL_SKUS = ["1001-DR"];
 const isCorner = type === "base-corner" || type === "wall-corner";
-const BROKEN_SKUS = ["1011B"];
+const BROKEN_SKUS = [];
 
 const hasModel =
   MODEL_SKUS.includes(cabinet.sku) &&
