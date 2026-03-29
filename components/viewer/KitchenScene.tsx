@@ -18,8 +18,8 @@ interface KitchenSceneProps {
 }
 
 const CM = 0.1;
-const BASE_Z = (RULES.BASE_DEPTH / 2 + 2.0) * CM;
-const WALL_Z = (RULES.WALL_DEPTH / 2 + 1.0) * CM;
+const BASE_Z = (RULES.BASE_DEPTH / 2 + 5.0) * CM;
+const WALL_Z = (RULES.WALL_DEPTH / 2 + 1.5) * CM;
 const WORKTOP_Z = (RULES.WORKTOP_DEPTH / 2) * CM;
 const WORKTOP_Y = (RULES.BASE_HEIGHT + RULES.WORKTOP_THICKNESS / 2) * CM;
 const HANDLE_RENDER_ORDER = 50;
@@ -126,7 +126,7 @@ function Room({
         position={[roomW / 2 - 50 * CM, 0, roomD / 2 - 50 * CM]}
       >
         <planeGeometry args={[roomW, roomD]} />
-        <meshStandardMaterial color="#D6CFC4" roughness={0.85} />
+        <meshStandardMaterial color="#C8A96E" roughness={0.75} metalness={0.02} />
       </mesh>
 
       <mesh receiveShadow position={[roomW / 2 - 50 * CM, wallH / 2, -0.5 * CM]}>
@@ -249,6 +249,7 @@ function CabinetMeshGLB({
         depthTest: true,
         transparent: false,
         side: THREE.FrontSide,
+        vertexColors: false,
       }),
     [colorway.carcassHex]
   );
@@ -461,7 +462,8 @@ function CabinetMesh({
 
   if (cabinet.wall === "B") {
     if (type === "base-corner" || type === "wall-corner") {
-      posX = RULES.CORNER_BASE_OFFSET * CM + (width * CM) / 2;
+      const cornerOffset = isWallCab ? 0 : RULES.CORNER_BASE_OFFSET * CM;
+      posX = cornerOffset + (width * CM) / 2;
       posZ = isWallCab ? WALL_Z : BASE_Z;
       rotY = 0;
     } else {
@@ -471,7 +473,8 @@ function CabinetMesh({
     }
   } else if (cabinet.wall === "C") {
     if (type === "base-corner" || type === "wall-corner") {
-      posX = wallA * CM - RULES.CORNER_BASE_OFFSET * CM - (width * CM) / 2;
+      const cornerOffset = isWallCab ? 0 : RULES.CORNER_BASE_OFFSET * CM;
+      posX = wallA * CM - cornerOffset - (width * CM) / 2;
       posZ = isWallCab ? WALL_Z : BASE_Z;
       rotY = 0;
     } else {
@@ -577,7 +580,7 @@ const hasModel =
       glbPosY += 10 * CM;
     }
 
-    const WALL_OFFSET = 2.0 * CM;
+   const WALL_OFFSET = isWallCab ? 0 * CM : 5.0 * CM;
 
     if (cabinet.wall === "B") {
       glbPosX = WALL_OFFSET;
@@ -585,9 +588,6 @@ const hasModel =
     } else if (cabinet.wall === "C") {
       glbPosX = wallA * CM - WALL_OFFSET;
       glbPosZ = xPos * CM;
-    }
-      if (cabinet.wall === "C" && type === "wall-corner") {
-      posX -= 1 * CM;
     }
 
     const fallback = (
@@ -765,6 +765,7 @@ function WorktopMerged({
 
   const wT = RULES.WORKTOP_THICKNESS * CM;
   const wD = RULES.WORKTOP_DEPTH * CM;
+  const CORNER_EXT = RULES.CORNER_BASE_OFFSET * CM;
 
   return (
     <>
@@ -777,23 +778,23 @@ function WorktopMerged({
         const totalWidth = (maxX - minX) * CM;
         const centerX = (minX + (maxX - minX) / 2) * CM;
 
+        const CORNER_EXT = RULES.CORNER_BASE_OFFSET * CM; // 5cm toward corner
+        const WT_RAISE = 0.05 * CM; // 0.5mm up
+
         if (wall === "B") {
           return (
-            <mesh key="wt-B" material={mat} castShadow position={[WORKTOP_Z, WORKTOP_Y, centerX]}>
-              <boxGeometry args={[wD, wT, totalWidth]} />
+            <mesh key="wt-B" material={mat} castShadow
+              position={[WORKTOP_Z, WORKTOP_Y + WT_RAISE, centerX - CORNER_EXT / 2]}>
+              <boxGeometry args={[wD, wT, totalWidth + CORNER_EXT]} />
             </mesh>
           );
         }
 
         if (wall === "C") {
           return (
-            <mesh
-              key="wt-C"
-              material={mat}
-              castShadow
-              position={[wallA * CM - WORKTOP_Z, WORKTOP_Y, centerX]}
-            >
-              <boxGeometry args={[wD, wT, totalWidth]} />
+            <mesh key="wt-C" material={mat} castShadow
+              position={[wallA * CM - WORKTOP_Z, WORKTOP_Y + WT_RAISE, centerX - CORNER_EXT / 2]}>
+              <boxGeometry args={[wD, wT, totalWidth + CORNER_EXT]} />
             </mesh>
           );
         }
