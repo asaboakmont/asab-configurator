@@ -586,6 +586,9 @@ const hasModel =
       glbPosX = wallA * CM - WALL_OFFSET;
       glbPosZ = xPos * CM;
     }
+      if (cabinet.wall === "C" && type === "wall-corner") {
+      posX -= 1 * CM;
+    }
 
     const fallback = (
       <group position={[posX, posY, posZ]} rotation={[0, rotY, 0]}>
