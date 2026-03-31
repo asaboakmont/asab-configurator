@@ -101,10 +101,11 @@ export default function StepViewer() {
 
       {/* Warnings */}
       {layoutWarnings && layoutWarnings.length > 0 && (
-        <div className="absolute top-16 left-4 right-4 z-10">
+        <div className="absolute bottom-32 left-4 right-4 z-10">
           {layoutWarnings.map((w, i) => (
-            <div key={i} className="bg-white border border-gray-200 text-gray-700 text-xs rounded-xl px-3 py-2 mb-1 shadow-sm">
-              ⚠️ {w}
+            <div key={i} className="bg-white border border-gray-200 text-gray-700 text-xs rounded-xl px-3 py-2 mb-1 shadow-sm flex items-center justify-between gap-2">
+              <span>⚠️ {w}</span>
+              <button onClick={() => useConfigStore.setState({ layoutWarnings: layoutWarnings.filter((_, j) => j !== i) })} className="text-gray-400 hover:text-gray-700 shrink-0 text-base leading-none">×</button>
             </div>
           ))}
         </div>
