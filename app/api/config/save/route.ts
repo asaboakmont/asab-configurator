@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
 
     const resend = new Resend(process.env.RESEND_API_KEY);
     const { data, error } = await resend.emails.send({
-      from: "ASAB Design <configurator@asab-design.ro>",
+      from: "ASAB Design <noreply@configurator.asab-design.ro>",
       to: email,
       subject: "Configuratia ta de bucatarie ASAB Design",
       html: `
