@@ -181,6 +181,44 @@ function Room({
     setSideOpacity(Math.max(0.0, Math.min(0.5, (1 - xDist * 2) * 0.5)));
   });
 
+  const woodFloorMaterial = useMemo(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext("2d")!;
+    const planks = 6;
+    const plankH = canvas.height / planks;
+    for (let i = 0; i < planks; i++) {
+      const base = 100 + Math.sin(i * 1.7) * 10;
+      ctx.fillStyle = `rgb(${base + 10}, ${base - 30}, ${base - 60})`;
+      ctx.fillRect(0, i * plankH, canvas.width, plankH);
+      for (let g = 0; g < 12; g++) {
+        const x = Math.random() * canvas.width;
+        ctx.strokeStyle = `rgba(0,0,0,0.04)`;
+        ctx.lineWidth = 0.5 + Math.random();
+        ctx.beginPath();
+        ctx.moveTo(x, i * plankH);
+        ctx.lineTo(x + (Math.random() - 0.5) * 40, (i + 1) * plankH);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = "rgba(0,0,0,0.15)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, (i + 1) * plankH);
+      ctx.lineTo(canvas.width, (i + 1) * plankH);
+      ctx.stroke();
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(6, 6);
+    return new THREE.MeshStandardMaterial({
+      map: texture,
+      roughness: 0.8,
+      metalness: 0.0,
+    });
+  }, []);
+
   return (
     <group>
       <mesh
@@ -189,7 +227,7 @@ function Room({
         position={[roomW / 2 - 50 * CM, 0, roomD / 2 - 50 * CM]}
       >
         <planeGeometry args={[roomW, roomD]} />
-        <meshStandardMaterial color="#C8A96E" roughness={0.75} metalness={0.02} />
+        <primitive object={woodFloorMaterial} />
       </mesh>
 
       <mesh receiveShadow position={[roomW / 2 - 50 * CM, wallH / 2, -0.5 * CM]}>
