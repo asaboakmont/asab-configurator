@@ -911,15 +911,23 @@ function WorktopMerged({
   colorway: Colorway;
   wallA: number;
 }) {
-  const mat = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: colorway.worktopHex,
-        roughness: 0.25,
-        metalness: 0.05,
-      }),
-    [colorway.worktopHex]
-  );
+  const mat = useMemo(() => {
+    const loader = new THREE.TextureLoader();
+    const texPath = colorway.worktop === "stejar"
+      ? "/textures/worktop-stejar.jpg"
+      : "/textures/worktop-piatra.jpg";
+    const texture = loader.load(texPath);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(2, 1);
+    return new THREE.MeshStandardMaterial({
+      map: texture,
+      color: colorway.worktop === "stejar" ? "#d4b896" : "#7a7570",
+      roughness: colorway.worktop === "stejar" ? 0.8 : 0.9,
+      metalness: 0.0,
+      envMapIntensity: 0,
+    });
+  }, [colorway.worktop]);
 
   const wT = RULES.WORKTOP_THICKNESS * CM;
   const wD = RULES.WORKTOP_DEPTH * CM;
