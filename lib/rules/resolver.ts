@@ -11,7 +11,7 @@ export const RULES = {
   CORNER_BASE_OFFSET:     5,
   MIN_WALL_B:             100,
   WORKTOP_DEPTH:          60,
-  WALL_CAB_FROM_FLOOR:    150,
+  WALL_CAB_FROM_FLOOR:    146.9,
   BASE_HEIGHT:            86,
   BASE_DEPTH:             53,
   BASE_WALL_GAP:          5,
