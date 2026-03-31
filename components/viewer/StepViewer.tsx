@@ -84,6 +84,7 @@ export default function StepViewer() {
         }),
       });
       const data = await res.json();
+      console.log("Save response:", JSON.stringify(data));
       setSaveUrl(data.url);
       setSaveSuccess(true);
     } catch (e) {
