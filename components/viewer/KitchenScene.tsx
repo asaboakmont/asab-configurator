@@ -128,7 +128,7 @@ export default function KitchenScene({
 
       {cabinets.map((cab, i) => (
         <CabinetMesh
-          key={i}
+          key={`${cab.sku}-${cab.wall}-${cab.xPos}-${cab.doorDirection}`}
           cabinet={cab}
           colorway={colorway}
           wallA={wallA}
@@ -253,6 +253,7 @@ function CabinetMeshGLB({
   posY,
   posZ,
   rotY,
+  doorDirection,
 }: {
   cabinet: Cabinet;
   colorway: Colorway;
@@ -260,6 +261,7 @@ function CabinetMeshGLB({
   posY: number;
   posZ: number;
   rotY: number;
+  doorDirection: "S" | "D";
 }) {
   const { sku } = cabinet;
 
@@ -474,9 +476,12 @@ function CabinetMeshGLB({
 
   if (meshes.length === 0) return null;
 
-  const mirrorDoor = cabinet.doorDirection === "D";
+  const mirrorDoor = doorDirection === "D";
   const isCorner = cabinet.type === "base-corner" || cabinet.type === "wall-corner";
   const shouldFlattenChildRotations = !isCorner && cabinet.wall !== "A";
+
+  const handleMeshes = meshes.filter(m => m.matName === "handle");
+  console.log(`${cabinet.sku} handles:`, handleMeshes.map(m => m.position));
 
   return (
     <group position={[posX, posY, posZ]} rotation={[0, rotY, 0]}>
@@ -502,29 +507,30 @@ function CabinetMeshGLB({
             ))}
 
             {doorMeshes.map((m, i) => {
-  const isHandle = m.matName === "handle";
-
-  return (
-    <mesh
-      key={`d-${i}`}
-      geometry={m.geometry}
-      material={matMap[m.matName] ?? carcassMat}
-      position={
-        mirrorDoor && !isHandle
-          ? [m.position[0], m.position[1], -m.position[2]]
-          : mirrorDoor && isHandle
-          ? [-m.position[0], m.position[1], m.position[2]]
-          : [m.position[0], m.position[1], m.position[2]]
-      }
-      rotation={shouldFlattenChildRotations ? [0, 0, 0] : m.rotation}
-      scale={[m.scale[0] * 10, m.scale[1] * 10, m.scale[2] * 10]}
-      castShadow
-      receiveShadow
-      frustumCulled={false}
-      renderOrder={isHandle ? HANDLE_RENDER_ORDER : 1}
-    />
-  );
-})}
+              const isHandle = m.matName === "handle";
+              return (
+                <group
+                  key={`d-${i}`}
+                  scale={mirrorDoor && isHandle ? [-1, 1, 1] : [1, 1, 1]}
+                  position={[
+                    mirrorDoor && isHandle ? (cabinet.width * CM) : 0,
+                    0, 0
+                  ]}
+                >
+                  <mesh
+                    geometry={m.geometry}
+                    material={matMap[m.matName] ?? carcassMat}
+                    position={m.position}
+                    rotation={shouldFlattenChildRotations ? [0, 0, 0] : m.rotation}
+                    scale={[m.scale[0] * 10, m.scale[1] * 10, m.scale[2] * 10]}
+                    castShadow
+                    receiveShadow
+                    frustumCulled={false}
+                    renderOrder={isHandle ? HANDLE_RENDER_ORDER : 1}
+                  />
+                </group>
+              );
+            })}
           </>
         );
       })()}
@@ -708,12 +714,14 @@ function CabinetMesh({
       <GLBErrorBoundary fallback={fallback}>
         <React.Suspense fallback={fallback}>
           <CabinetMeshGLB
+            key={`${cabinet.sku}-${cabinet.wall}-${cabinet.xPos}-${cabinet.doorDirection}`}
             cabinet={cabinet}
             colorway={colorway}
             posX={glbPosX}
             posY={glbPosY}
             posZ={glbPosZ}
             rotY={rotY}
+            doorDirection={cabinet.doorDirection ?? "S"}
           />
         </React.Suspense>
       </GLBErrorBoundary>
