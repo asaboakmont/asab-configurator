@@ -21,6 +21,12 @@ export default function StepViewer() {
   const [exporting,  setExporting]  = useState(false);
   const [wallBCabs,  setWallBCabs]  = useState(true);
   const [showSheet,  setShowSheet]  = useState(false);
+  const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const [saveName,      setSaveName]      = useState("");
+  const [saveEmail,     setSaveEmail]     = useState("");
+  const [saving,        setSaving]        = useState(false);
+  const [saveSuccess,   setSaveSuccess]   = useState(false);
+  const [saveUrl,       setSaveUrl]       = useState("");
   const [sheetTab,   setSheetTab]   = useState<"colors" | "cabinets" | "list">("colors");
   const [show2D,     setShow2D]     = useState(false);
 
@@ -61,6 +67,30 @@ export default function StepViewer() {
       } catch(e) { console.warn("Cart URL failed:", e); }
       await exportKitchenPDF({ cabinets: visibleCabinets, colorway, handle: colorway.handle, totalPrice, layout, dimensions, screenshot, cartUrl });
     } finally { setExporting(false); }
+  };
+
+  const handleSaveConfig = async () => {
+    if (!saveName || !saveEmail) return;
+    setSaving(true);
+    try {
+      const { layout, dimensions, appliances, colorway, cabinets, totalPrice } = useConfigStore.getState();
+      const res = await fetch("/api/config/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          config: { layout, dimensions, appliances, colorway, cabinets, totalPrice },
+          name: saveName,
+          email: saveEmail,
+        }),
+      });
+      const data = await res.json();
+      setSaveUrl(data.url);
+      setSaveSuccess(true);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -210,6 +240,9 @@ export default function StepViewer() {
                   {exporting ? "PDF…" : "Salveaza PDF"}
                 </button>
               </div>
+              <button onClick={() => setSaveModalOpen(true)} className="w-full py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600">
+                🔗 Salveaza & Trimite link
+              </button>
             </div>
           )}
 
@@ -280,6 +313,59 @@ export default function StepViewer() {
             <div className="mt-4">
               <CabinetEditor />
             </div>
+          </div>
+        </div>
+      )}
+    {/* Save Modal */}
+      {saveModalOpen && (
+        <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm space-y-4">
+            {!saveSuccess ? (
+              <>
+                <h2 className="text-base font-semibold text-gray-900">Salveaza configuratia</h2>
+                <p className="text-xs text-gray-400">Vei primi un link pe email pentru a reveni la configuratia ta oricand.</p>
+                <input
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-900"
+                  placeholder="Numele tau"
+                  value={saveName}
+                  onChange={e => setSaveName(e.target.value)}
+                />
+                <input
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-900"
+                  type="email"
+                  placeholder="Email"
+                  value={saveEmail}
+                  onChange={e => setSaveEmail(e.target.value)}
+                />
+                <div className="flex gap-3">
+                  <button onClick={() => setSaveModalOpen(false)} className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600">
+                    Anuleaza
+                  </button>
+                  <button onClick={handleSaveConfig} disabled={!saveName || !saveEmail || saving}
+                    className="flex-[2] py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold disabled:opacity-40">
+                    {saving ? "Se salveaza…" : "Trimite link →"}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+                  <svg width="20" height="16" viewBox="0 0 20 16" fill="none">
+                    <path d="M2 8l5 5L18 2" stroke="#111" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+                <h2 className="text-base font-semibold text-gray-900 text-center">Link trimis!</h2>
+                <p className="text-xs text-gray-400 text-center">Am trimis linkul la {saveEmail}. Valabil 30 de zile.</p>
+                <button onClick={() => navigator.clipboard.writeText(saveUrl)}
+                  className="w-full py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600">
+                  📋 Copiaza linkul
+                </button>
+                <button onClick={() => { setSaveModalOpen(false); setSaveSuccess(false); }}
+                  className="w-full py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold">
+                  Inchide
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

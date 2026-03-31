@@ -11,13 +11,16 @@
   "dependencies": {
     "@react-three/drei": "^9.109.2",
     "@react-three/fiber": "^8.17.5",
+    "@upstash/redis": "^1.37.0",
     "framer-motion": "^12.38.0",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
+    "nanoid": "^5.1.7",
     "next": "14.2.35",
     "react": "^18",
     "react-dom": "^18",
     "react-hook-form": "^7.71.2",
+    "resend": "^6.10.0",
     "three": "^0.167.0",
     "zustand": "^5.0.12"
   },

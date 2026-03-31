@@ -519,7 +519,6 @@ function CabinetMeshGLB({
   const shouldFlattenChildRotations = !isCorner && cabinet.wall !== "A";
 
   const handleMeshes = meshes.filter(m => m.matName === "handle");
-  console.log(`${cabinet.sku} handles:`, handleMeshes.map(m => m.position));
 
   return (
     <group position={[posX, posY, posZ]} rotation={[0, rotY, 0]}>
