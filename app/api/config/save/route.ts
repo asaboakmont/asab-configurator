@@ -17,38 +17,31 @@ export async function POST(req: NextRequest) {
     try {
       await redis.set(`config:${id}`, JSON.stringify(config), { ex: 2592000 });
     } catch (redisErr) {
-      console.error("Redis error:", redisErr);
       return NextResponse.json({ error: "Redis failed", detail: String(redisErr) }, { status: 500 });
     }
 
     const url = `https://configurator.asab-design.ro/?config=${id}`;
 
-    try {
-      const resend = new Resend(process.env.RESEND_API_KEY);
-      await resend.emails.send({
-        from: "ASAB Design <configurator@asab-design.ro>",
-        to: email,
-        subject: "Configuratia ta de bucatarie ASAB Design",
-        html: `
-          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #111;">Buna ziua, ${name}!</h2>
-            <p>Configuratia ta de bucatarie a fost salvata.</p>
-            <a href="${url}" style="display:inline-block; background:#111; color:#fff; padding:12px 24px; border-radius:8px; text-decoration:none; margin:16px 0;">
-              Vezi configuratia →
-            </a>
-            <p style="color:#666; font-size:12px;">Linkul este valabil 30 de zile.</p>
-          </div>
-        `,
-      });
-    } catch (emailErr) {
-      console.error("Resend error:", emailErr);
-      // Don't fail — still return success with URL even if email fails
-    }
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    const { data, error } = await resend.emails.send({
+      from: "ASAB Design <configurator@asab-design.ro>",
+      to: email,
+      subject: "Configuratia ta de bucatarie ASAB Design",
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #111;">Buna ziua, ${name}!</h2>
+          <p>Configuratia ta de bucatarie a fost salvata.</p>
+          <a href="${url}" style="display:inline-block; background:#111; color:#fff; padding:12px 24px; border-radius:8px; text-decoration:none; margin:16px 0;">
+            Vezi configuratia →
+          </a>
+          <p style="color:#666; font-size:12px;">Linkul este valabil 30 de zile.</p>
+        </div>
+      `,
+    });
 
-    return NextResponse.json({ id, url });
+    return NextResponse.json({ id, url, emailData: data, emailError: error });
 
   } catch (err) {
-    console.error("Save error:", err);
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }
