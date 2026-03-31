@@ -8,16 +8,15 @@ const redis = new Redis({
   token: process.env.UPSTASH_REDIS_REST_TOKEN!,
 });
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 export async function POST(req: NextRequest) {
   const { config, name, email } = await req.json();
 
   const id = nanoid(10);
-  await redis.set(`config:${id}`, JSON.stringify(config), { ex: 60 * 60 * 24 * 30 }); // 30 days
+  await redis.set(`config:${id}`, JSON.stringify(config), { ex: 60 * 60 * 24 * 30 });
 
   const url = `https://configurator.asab-design.ro/?config=${id}`;
 
+  const resend = new Resend(process.env.RESEND_API_KEY);
   await resend.emails.send({
     from: "ASAB Design <configurator@asab-design.ro>",
     to: email,
