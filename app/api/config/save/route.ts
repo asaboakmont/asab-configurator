@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Redis } from "@upstash/redis";
 import { Resend } from "resend";
 import { nanoid } from "nanoid";
 
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-});
-
 export async function POST(req: NextRequest) {
   const { config, name, email } = await req.json();
+
+  const { Redis } = await import("@upstash/redis");
+  const redis = new Redis({
+    url: process.env.UPSTASH_REDIS_REST_URL!,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+  });
 
   const id = nanoid(10);
   await redis.set(`config:${id}`, JSON.stringify(config), { ex: 60 * 60 * 24 * 30 });
