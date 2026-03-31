@@ -582,7 +582,7 @@ function CabinetMesh({
     }
   } else {
     posX = xPos * CM + (width * CM) / 2;
-    posZ = isWallCab ? WALL_Z : BASE_Z;
+    posZ = isWallCab ? WALL_Z : isTall ? (RULES.BASE_DEPTH / 2 + 2.5) * CM : BASE_Z;
     rotY = 0;
   }
 
@@ -677,7 +677,7 @@ function CabinetMesh({
     let glbPosZ = posZ - glbDepth / 2;
 
     if (type === "base-dishwasher" && cabinet.wall === "A") {
-      glbPosZ = 53 * CM;
+      glbPosZ = 53 * CM + 3.0 * CM;
       glbPosY += 10 * CM;
     }
 
