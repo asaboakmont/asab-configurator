@@ -99,7 +99,6 @@ function autoPlaceAppliances(
   const fitsRemaining = wallLength - fitsTotal;
   const fillersFit = fitsRemaining > 0 ? decomposeWall(fitsRemaining) : [];
 
-  // All fillers go to the RIGHT of appliances — gap at right end, not between cabs
   const allWidths = [...fitsWidths, ...fillersFit];
 
   const positions: number[] = [];
@@ -219,20 +218,23 @@ export function resolveLayout(
   if (applianceOverflow.length > 0 && layout !== "l-shape") {
     warnings.push("Spatiul selectat nu este suficient pentru toate aparatele alese. Va rugam mariti dimensiunea bucatariei.");
   }
-  buildBaseRun({ wallId: "A", wallLength: baseLength, startX: baseStartX, placements: basePlacements, cabinets, customWidths: baseWidths });
+  const actualBaseWidth = baseWidths.reduce((s, w) => s + w, 0);
+  const baseGap = baseLength - actualBaseWidth;
+  const adjustedBaseStartX = !cornerAtLeft ? baseStartX + baseGap : baseStartX;
+  buildBaseRun({ wallId: "A", wallLength: baseLength, startX: adjustedBaseStartX, placements: basePlacements, cabinets, customWidths: baseWidths });
 
   // Tall cabs: placed at right end (Wall B) or left end (Wall C)
   // Tall cabs: start exactly where base run ends
   const actualBaseEnd = baseStartX + baseWidths.reduce((s, w) => s + w, 0);
   tallList.forEach((t, i) => {
     const prevW = tallList.slice(0, i).reduce((s, c) => s + c.width, 0);
-    const tallX = cornerAtLeft ? actualBaseEnd + prevW : prevW;
+    const tallX = cornerAtLeft ? actualBaseEnd + prevW : prevW + baseGap;
     cabinets.push({ ...t, xPos: tallX });
   });
 
   // Wall A wall run — same width as base run, no tall zone
-  const wallRunStartX = cornerAtLeft ? cornerGap : tallWidth;
-  const wallRunLen    = baseLength; // match base run exactly, not wallA
+  const wallRunStartX = cornerAtLeft ? cornerGap : tallWidth + baseGap;
+  const wallRunLen    = baseLength - (!cornerAtLeft ? baseGap : 0);
   const hobPlacement  = appliances.hasHob && appliances.hasHood
     ? autoPlaceHobWall(basePlacements) : new Map<number, Cabinet["type"]>();
   buildWallRun({ wallId: "A", wallLength: wallRunLen, startX: wallRunStartX, placements: hobPlacement, cabinets, customWidths: baseWidths });
@@ -264,6 +266,13 @@ export function resolveLayout(
             if (cabType === "base-hob" || cabType === "base-oven") {
               perpHobXPos.push(existing.xPos);
             }
+            // Remove any wall cabinet already placed above this position
+            const wallCabIdx = cabinets.findIndex(c =>
+              c.wall === perpWall &&
+              ["wall", "wall-hood"].includes(c.type) &&
+              c.xPos === existing.xPos
+            );
+            if (wallCabIdx !== -1) cabinets.splice(wallCabIdx, 1);
           }
         } else {
           const overflowPlacements = new Map<number, Cabinet["type"]>();
