@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     const id = nanoid(10);
 
     try {
-      await redis.set(`config:${id}`, JSON.stringify(config), { ex: 2592000 });
+      await redis.set(`config:${id}`, JSON.stringify({ ...config, _lead: { name, email } }), { ex: 2592000 });
     } catch (redisErr) {
       return NextResponse.json({ error: "Redis failed", detail: String(redisErr) }, { status: 500 });
     }
@@ -38,6 +38,24 @@ export async function POST(req: NextRequest) {
         </div>
       `,
     });
+
+    // Notify owner
+    const notifyResend = new Resend(process.env.RESEND_API_KEY);
+    await notifyResend.emails.send({
+      from: "ASAB Configurator <noreply@configurator.asab-design.ro>",
+      to: "asaboakmont@gmail.com",
+      subject: `Config salvat: ${name} — ${email}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Config nou salvat</h2>
+          <p><strong>Nume:</strong> ${name}</p>
+          <p><strong>Email:</strong> ${email}</p>
+          <a href="${url}" style="display:inline-block; background:#111; color:#fff; padding:12px 24px; border-radius:8px; text-decoration:none; margin:16px 0;">
+            Vezi configuratia →
+          </a>
+        </div>
+      `,
+    }).catch(() => {});
 
     return NextResponse.json({ id, url, emailData: data, emailError: error });
 

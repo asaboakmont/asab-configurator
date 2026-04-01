@@ -304,6 +304,11 @@ export default function StepViewer() {
                 disabled={!pdfName || !pdfEmail || !pdfPhone || exporting}
                 onClick={async () => {
                   setPdfModalOpen(false);
+                  fetch("/api/pdf/notify", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name: pdfName, email: pdfEmail, phone: pdfPhone, totalPrice }),
+                  }).catch(() => {});
                   await handleExportPDF(pdfName, pdfEmail, pdfPhone);
                 }}
                 className="flex-[2] py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold disabled:opacity-40">
