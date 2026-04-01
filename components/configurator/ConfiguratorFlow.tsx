@@ -34,7 +34,7 @@ export default function ConfiguratorFlow() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-white">
-      <header className="shrink-0 bg-white border-b border-gray-100 px-4 py-3 z-50">
+      <header className={["shrink-0 bg-white border-b border-gray-100 px-4 py-3 z-50", (step === "viewer" || step === "cart") ? "hidden" : ""].join(" ")}>
         <div className="max-w-lg mx-auto">
           <div className="flex items-center justify-between mb-3">
             <span className="text-base font-semibold tracking-wide text-gray-900">

@@ -21,7 +21,7 @@ export default function StepViewer() {
   const [exporting,    setExporting]    = useState(false);
   const [wallBCabs,    setWallBCabs]    = useState(true);
   const [showSheet,    setShowSheet]    = useState(false);
-  const [sheetTab,     setSheetTab]     = useState<"colors" | "cabinets" | "list">("colors");
+  const [sheetTab,     setSheetTab]     = useState<"colors" | "list">("colors");
   const [show2D,       setShow2D]       = useState(false);
   const [pdfModalOpen, setPdfModalOpen] = useState(false);
   const [pdfName,      setPdfName]      = useState("");
@@ -128,15 +128,16 @@ export default function StepViewer() {
 
       <div className="absolute bottom-0 left-0 right-0">
         <button onClick={() => setShowSheet(v => !v)}
-          className="w-full flex flex-col items-center gap-1 pt-2 pb-1">
-          <div className="w-8 h-1 bg-gray-200 rounded-full" />
+          className="w-full flex items-center justify-center pt-2 pb-1">
+          <svg width="38" height="38" viewBox="0 0 20 20" fill="none" className={["transition-transform duration-300", showSheet ? "rotate-180" : ""].join(" ")}>
+            <path d="M4 13l6-6 6 6" stroke="#6B7280" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
         </button>
         <div className={["bg-white transition-all duration-300 overflow-hidden border-t border-gray-100",
           showSheet ? "max-h-[55vh]" : "max-h-[120px]"].join(" ")}>
           <div className="flex border-b border-gray-100 px-4">
             {([
               { id: "colors",   label: "Culori" },
-              { id: "cabinets", label: "Dulapuri" },
               { id: "list",     label: "Lista" },
             ] as const).map(tab => (
               <button key={tab.id}
@@ -191,16 +192,6 @@ export default function StepViewer() {
             </div>
           )}
 
-          {sheetTab === "cabinets" && (
-            <div className="overflow-y-auto max-h-[40vh] px-4 py-4 flex flex-col items-center justify-center gap-3">
-              <p className="text-xs text-gray-400 text-center">Adaugati sau eliminati dulapuri din configurare.</p>
-              <button onClick={() => { setShow2D(true); setShowSheet(false); }}
-                className="w-full py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold">
-                Modifica configurarea →
-              </button>
-            </div>
-          )}
-
           {sheetTab === "list" && (
             <div className="overflow-y-auto max-h-[40vh] px-4 py-3">
               <div className="space-y-2">
@@ -246,7 +237,10 @@ export default function StepViewer() {
         <div className="absolute inset-0 bg-white z-50 overflow-y-auto">
           <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
             <h2 className="text-base font-semibold text-gray-900">Modifica configurarea</h2>
-            <button onClick={() => setShow2D(false)} className="text-gray-400 text-2xl leading-none">×</button>
+            <button onClick={() => setShow2D(false)}
+              className="bg-gray-900 text-white text-xs font-semibold rounded-xl px-4 py-2">
+              3D
+            </button>
           </div>
           <div className="px-4 py-4">
             <CabinetEditor />
