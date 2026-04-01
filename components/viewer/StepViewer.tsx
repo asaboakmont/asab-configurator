@@ -1,4 +1,5 @@
 "use client";
+import React from "react"
 import { Suspense, useState } from "react";
 import { useConfigStore } from "@/store/configuratorStore";
 import { COLORWAYS } from "@/data/colorways";
@@ -83,19 +84,7 @@ export default function StepViewer() {
           />
         </Suspense>
         {showHints && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none"
-            style={{ animation: "fadeOut 0.5s ease 6s forwards" }}
-            onAnimationEnd={() => setShowHints(false)}>
-            <div className="flex flex-col items-center gap-4">
-              <div className="flex flex-col items-center gap-1">
-                <div className="relative w-16 h-16">
-                  <div className="absolute w-6 h-6 bg-white/80 rounded-full border-2 border-gray-900"
-                    style={{ animation: "orbitFinger 1.5s ease-in-out infinite", top: "50%", left: "50%", transform: "translate(-50%,-50%)" }} />
-                </div>
-                <span className="text-white text-xs font-semibold bg-black/50 px-2 py-0.5 rounded-full">Trageti pentru rotire</span>
-              </div>
-            </div>
-          </div>
+          <GestureHints onDone={() => setShowHints(false)} />
         )}
       </div>
 
@@ -313,6 +302,69 @@ export default function StepViewer() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function GestureHints({ onDone }: { onDone: () => void }) {
+  const [phase, setPhase] = React.useState<"pinch" | "pan" | "orbit" | "done">("pinch");
+
+  React.useEffect(() => {
+    const timers = [
+      setTimeout(() => setPhase("pan"),   2500),
+      setTimeout(() => setPhase("orbit"), 5000),
+      setTimeout(() => setPhase("done"),  7500),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
+  React.useEffect(() => {
+    if (phase === "done") onDone();
+  }, [phase]);
+
+  const hints = {
+    pinch:  { label: "Apropie 2 degete — zoom" },
+    pan:    { label: "2 degete — panoramare" },
+    orbit:  { label: "1 deget — rotire" },
+  };
+
+  if (phase === "done") return null;
+
+  return (
+    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+      <div className="bg-black/50 backdrop-blur-sm rounded-3xl flex flex-col items-center justify-center gap-8"
+        style={{ width: "60vw", height: "60vw", maxWidth: 320, maxHeight: 320 }}>
+        
+        <div className="relative w-24 h-24 flex items-center justify-center">
+          {phase === "pinch" && (
+            <>
+              <div className="absolute w-5 h-5 bg-white rounded-full shadow-lg" style={{ animation: "pinchDot1 1.2s ease-in-out infinite" }} />
+              <div className="absolute w-5 h-5 bg-white rounded-full shadow-lg" style={{ animation: "pinchDot2 1.2s ease-in-out infinite" }} />
+            </>
+          )}
+          {phase === "pan" && (
+            <>
+              <div className="absolute w-5 h-5 bg-white rounded-full shadow-lg" style={{ top: "25%", left: "50%", transform: "translate(-50%,-50%)", animation: "panDot 1.2s ease-in-out infinite" }} />
+              <div className="absolute w-5 h-5 bg-white rounded-full shadow-lg" style={{ top: "75%", left: "50%", transform: "translate(-50%,-50%)", animation: "panDot 1.2s ease-in-out infinite" }} />
+            </>
+          )}
+          {phase === "orbit" && (
+            <div className="absolute w-5 h-5 bg-white rounded-full shadow-lg" style={{ top: "50%", left: "50%", transform: "translate(-50%,-50%)", animation: "orbitDot 1.2s ease-in-out infinite" }} />
+          )}
+        </div>
+
+        <span className="text-white text-sm font-medium text-center px-4">
+          {hints[phase].label}
+        </span>
+
+        <div className="flex gap-2">
+          {(["pinch","pan","orbit"] as const).map(p => (
+            <div key={p} className={["w-2 h-2 rounded-full transition-all",
+              phase === p ? "bg-white scale-125" : "bg-white/30"].join(" ")} />
+          ))}
+        </div>
+
+      </div>
     </div>
   );
 }

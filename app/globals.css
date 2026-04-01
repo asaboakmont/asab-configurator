@@ -84,19 +84,29 @@ input, select, textarea {
   from { opacity: 1; }
   to   { opacity: 0; pointer-events: none; }
 }
+
+@keyframes pinchDot1 {
+  0%, 100% { transform: translate(-14px, 0); }
+  50%       { transform: translate(-4px, 0); }
+}
+@keyframes pinchDot2 {
+  0%, 100% { transform: translate(14px, 0); }
+  50%       { transform: translate(4px, 0); }
+}
+
+@keyframes panDot {
+  0%, 100% { margin-left: -8px; }
+  50%       { margin-left: 8px; }
+}
+
+@keyframes orbitDot {
+  0%, 100% { transform: translate(-50%, -50%) translateX(-14px); }
+  25%       { transform: translate(-50%, -50%) translateX(0px); }
+  50%       { transform: translate(-50%, -50%) translateX(14px); }
+  75%       { transform: translate(-50%, -50%) translateX(0px); }
+}
+
 @keyframes orbitFinger {
   0%   { transform: translate(-50%, -50%) rotate(0deg)   translateX(20px); }
   100% { transform: translate(-50%, -50%) rotate(360deg) translateX(20px); }
-}
-@keyframes panFinger1 {
-  0%, 100% { transform: translateX(0); }
-  50%      { transform: translateX(18px); }
-}
-@keyframes panFinger2 {
-  0%, 100% { transform: translateX(0); }
-  50%      { transform: translateX(18px); }
-}
-@keyframes dashMove {
-  from { stroke-dashoffset: 0; }
-  to   { stroke-dashoffset: -20; }
 }
