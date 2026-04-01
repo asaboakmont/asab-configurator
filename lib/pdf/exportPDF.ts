@@ -49,7 +49,10 @@ export async function exportKitchenPDF(opts: PDFExportOptions) {
   }
   const aspect = (typeof window !== "undefined" && (window as any).__screenshotAspect) ? (window as any).__screenshotAspect : 9/16;
   const imgH = opts.screenshot ? Math.round((pageW - margin * 2) * aspect) : 0;
-  let y = opts.screenshot ? 32 + imgH + 8 : 38;
+  if (opts.screenshot) {
+    doc.addPage();
+  }
+  let y = 38;
   doc.setTextColor(15, 14, 13);
   doc.setFontSize(13);
   doc.setFont("helvetica", "bold");
@@ -142,6 +145,8 @@ export async function exportKitchenPDF(opts: PDFExportOptions) {
   y += 7;
 
   y += 2;
+  // Ensure total + button + footer fit — add page if needed
+  if (y > 230) { doc.addPage(); y = 20; }
   doc.setDrawColor(200, 184, 154);
   doc.line(margin, y, pageW - margin, y);
   y += 6;
@@ -174,12 +179,18 @@ export async function exportKitchenPDF(opts: PDFExportOptions) {
   }
 
   const footerY = 285;
-  doc.setFillColor(237, 232, 223);
-  doc.rect(0, footerY, pageW, 12, "F");
-  doc.setFontSize(7.5);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(107, 101, 96);
-  doc.text("asab-design.ro  ·  Preturile sunt estimative si nu includ TVA, transport sau montaj.", margin, footerY + 7);
+  const totalPages = (doc as any).internal.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    doc.setFillColor(237, 232, 223);
+    doc.rect(0, footerY, pageW, 12, "F");
+    doc.setFontSize(7.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(107, 101, 96);
+    doc.text("asab-design.ro  ·  Preturile sunt estimative si nu includ TVA, transport sau montaj.", margin, footerY + 7);
+    doc.setTextColor(140, 106, 63);
+    doc.text(`Pagina ${p} / ${totalPages}`, pageW - margin, footerY + 7, { align: "right" });
+  }
 
   doc.save(`ASAB-Bucatarie-${Date.now()}.pdf`);
 }
