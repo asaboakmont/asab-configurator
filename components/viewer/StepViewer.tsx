@@ -17,24 +17,22 @@ const HANDLES: { id: HandleStyle; label: string }[] = [
 
 export default function StepViewer() {
   const { cabinets, totalPrice, colorway, layout, dimensions, setColorway, setStep, layoutWarnings } = useConfigStore();
-  const [showHints,  setShowHints]  = useState(true);
-  const [exporting,  setExporting]  = useState(false);
-  const [wallBCabs,  setWallBCabs]  = useState(true);
-  const [showSheet,  setShowSheet]  = useState(false);
-  const [saveModalOpen, setSaveModalOpen] = useState(false);
-  const [saveName,      setSaveName]      = useState("");
-  const [saveEmail,     setSaveEmail]     = useState("");
-  const [saving,        setSaving]        = useState(false);
-  const [saveSuccess,   setSaveSuccess]   = useState(false);
-  const [saveUrl,       setSaveUrl]       = useState("");
-  const [sheetTab,   setSheetTab]   = useState<"colors" | "cabinets" | "list">("colors");
-  const [show2D,     setShow2D]     = useState(false);
+  const [showHints,    setShowHints]    = useState(true);
+  const [exporting,    setExporting]    = useState(false);
+  const [wallBCabs,    setWallBCabs]    = useState(true);
+  const [showSheet,    setShowSheet]    = useState(false);
+  const [sheetTab,     setSheetTab]     = useState<"colors" | "cabinets" | "list">("colors");
+  const [show2D,       setShow2D]       = useState(false);
+  const [pdfModalOpen, setPdfModalOpen] = useState(false);
+  const [pdfName,      setPdfName]      = useState("");
+  const [pdfEmail,     setPdfEmail]     = useState("");
+  const [pdfPhone,     setPdfPhone]     = useState("");
 
   const visibleCabinets = wallBCabs
     ? cabinets
     : cabinets.filter((c) => (c.wall !== "B" && c.wall !== "C") || c.type === "base-corner");
 
-  const handleExportPDF = async () => {
+  const handleExportPDF = async (name = "", email = "", phone = "") => {
     setExporting(true);
     try {
       let screenshot: string | undefined;
@@ -61,43 +59,16 @@ export default function StepViewer() {
       try {
         const res = await fetch("/api/shopify/draft-order", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cabinets: visibleCabinets, colorway, handle: colorway.handle, totalPrice, dimensions, layout, contact: { name: "", phone: "", email: "" } }),
+          body: JSON.stringify({ cabinets: visibleCabinets, colorway, handle: colorway.handle, totalPrice, dimensions, layout, contact: { name, phone, email } }),
         });
         if (res.ok) { const data = await res.json(); cartUrl = data.checkoutUrl; }
       } catch(e) { console.warn("Cart URL failed:", e); }
-      await exportKitchenPDF({ cabinets: visibleCabinets, colorway, handle: colorway.handle, totalPrice, layout, dimensions, screenshot, cartUrl });
+      await exportKitchenPDF({ cabinets: visibleCabinets, colorway, handle: colorway.handle, totalPrice, layout, dimensions, screenshot, cartUrl, contact: { name, phone, email } });
     } finally { setExporting(false); }
-  };
-
-  const handleSaveConfig = async () => {
-    if (!saveName || !saveEmail) return;
-    setSaving(true);
-    try {
-      const { layout, dimensions, appliances, colorway, cabinets, totalPrice } = useConfigStore.getState();
-      const res = await fetch("/api/config/save", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          config: { layout, dimensions, appliances, colorway, cabinets, totalPrice },
-          name: saveName,
-          email: saveEmail,
-        }),
-      });
-      const data = await res.json();
-      console.log("Save response:", JSON.stringify(data));
-      setSaveUrl(data.url);
-      setSaveSuccess(true);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setSaving(false);
-    }
   };
 
   return (
     <div className="relative" style={{ height: "100svh", marginLeft: "-1rem", marginRight: "-1rem", marginTop: "-1rem" }}>
-
-      {/* 3D Viewer */}
       <div
         key={visibleCabinets.length + "-" + visibleCabinets.reduce((s,c) => s + c.width, 0)}
         id="kitchen-viewer"
@@ -112,7 +83,6 @@ export default function StepViewer() {
             cornerSide={dimensions.cornerSide ?? "right"}
           />
         </Suspense>
-
         {showHints && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none"
             style={{ animation: "fadeOut 0.5s ease 6s forwards" }}
@@ -130,7 +100,6 @@ export default function StepViewer() {
         )}
       </div>
 
-      {/* Warnings */}
       {layoutWarnings && layoutWarnings.length > 0 && (
         <div className="absolute bottom-32 left-4 right-4 z-10">
           {layoutWarnings.map((w, i) => (
@@ -142,7 +111,6 @@ export default function StepViewer() {
         </div>
       )}
 
-      {/* Top bar */}
       <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 pt-4 pointer-events-none">
         <button onClick={() => setStep("style")}
           className="pointer-events-auto bg-white/90 backdrop-blur-sm text-gray-600 text-xs font-semibold rounded-full px-3 py-1.5 shadow-sm border border-gray-100">
@@ -156,7 +124,6 @@ export default function StepViewer() {
         </div>
       </div>
 
-      {/* Floating buttons */}
       <div className="absolute right-4 bottom-48 flex flex-col gap-2">
         <button onClick={() => setShow2D(true)}
           className="w-11 h-11 bg-white/90 backdrop-blur-sm rounded-full shadow-sm border border-gray-100 flex items-center justify-center text-gray-600 text-xs font-semibold">
@@ -171,17 +138,13 @@ export default function StepViewer() {
         )}
       </div>
 
-      {/* Bottom sheet */}
       <div className="absolute bottom-0 left-0 right-0">
         <button onClick={() => setShowSheet(v => !v)}
           className="w-full flex flex-col items-center gap-1 pt-2 pb-1">
           <div className="w-8 h-1 bg-gray-200 rounded-full" />
         </button>
-
         <div className={["bg-white transition-all duration-300 overflow-hidden border-t border-gray-100",
           showSheet ? "max-h-[55vh]" : "max-h-[120px]"].join(" ")}>
-
-          {/* Tab bar */}
           <div className="flex border-b border-gray-100 px-4">
             {([
               { id: "colors",   label: "Culori" },
@@ -191,15 +154,12 @@ export default function StepViewer() {
               <button key={tab.id}
                 onClick={() => { setSheetTab(tab.id); setShowSheet(true); }}
                 className={["flex-1 py-2.5 text-xs font-semibold border-b-2 transition-colors",
-                  sheetTab === tab.id
-                    ? "border-gray-900 text-gray-900"
-                    : "border-transparent text-gray-400"].join(" ")}>
+                  sheetTab === tab.id ? "border-gray-900 text-gray-900" : "border-transparent text-gray-400"].join(" ")}>
                 {tab.label}
               </button>
             ))}
           </div>
 
-          {/* Colors tab */}
           {sheetTab === "colors" && (
             <div className="px-4 py-3 space-y-4 overflow-y-auto max-h-[40vh]">
               <div>
@@ -225,9 +185,7 @@ export default function StepViewer() {
                     <button key={h.id}
                       onClick={() => setColorway({ ...colorway, handle: h.id as "inox" | "negru-mat", handleHex: h.id === "inox" ? "#C0C0C0" : "#1C1C1A" })}
                       className={["py-2.5 text-sm rounded-xl border font-semibold transition-all",
-                        colorway.handle === h.id
-                          ? "border-gray-900 bg-gray-900 text-white"
-                          : "border-gray-200 text-gray-600"].join(" ")}>
+                        colorway.handle === h.id ? "border-gray-900 bg-gray-900 text-white" : "border-gray-200 text-gray-600"].join(" ")}>
                       {h.label}
                     </button>
                   ))}
@@ -237,24 +195,20 @@ export default function StepViewer() {
                 <button onClick={() => setStep("cart")} className="py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold">
                   Adauga in cos →
                 </button>
-                <button onClick={handleExportPDF} disabled={exporting} className="py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600">
+                <button onClick={() => setPdfModalOpen(true)} disabled={exporting}
+                  className="py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600">
                   {exporting ? "PDF…" : "Salveaza PDF"}
                 </button>
               </div>
-              <button onClick={() => setSaveModalOpen(true)} className="w-full py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600">
-                🔗 Salveaza & Trimite link
-              </button>
             </div>
           )}
 
-          {/* Cabinets tab */}
           {sheetTab === "cabinets" && (
             <div className="overflow-y-auto max-h-[40vh] px-2 py-2">
               <CabinetEditor />
             </div>
           )}
 
-          {/* List tab */}
           {sheetTab === "list" && (
             <div className="overflow-y-auto max-h-[40vh] px-4 py-3">
               <div className="space-y-2">
@@ -275,7 +229,6 @@ export default function StepViewer() {
             </div>
           )}
 
-          {/* Collapsed state */}
           {!showSheet && (
             <div className="flex items-center gap-3 px-4 py-2">
               <div className="flex gap-1 overflow-x-auto">
@@ -297,7 +250,6 @@ export default function StepViewer() {
         </div>
       </div>
 
-      {/* 2D Modal */}
       {show2D && (
         <div className="absolute inset-0 bg-white z-50 overflow-y-auto">
           <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
@@ -317,56 +269,47 @@ export default function StepViewer() {
           </div>
         </div>
       )}
-    {/* Save Modal */}
-      {saveModalOpen && (
+
+      {pdfModalOpen && (
         <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm space-y-4">
-            {!saveSuccess ? (
-              <>
-                <h2 className="text-base font-semibold text-gray-900">Salveaza configuratia</h2>
-                <p className="text-xs text-gray-400">Vei primi un link pe email pentru a reveni la configuratia ta oricand.</p>
-                <input
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-900"
-                  placeholder="Numele tau"
-                  value={saveName}
-                  onChange={e => setSaveName(e.target.value)}
-                />
-                <input
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-900"
-                  type="email"
-                  placeholder="Email"
-                  value={saveEmail}
-                  onChange={e => setSaveEmail(e.target.value)}
-                />
-                <div className="flex gap-3">
-                  <button onClick={() => setSaveModalOpen(false)} className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600">
-                    Anuleaza
-                  </button>
-                  <button onClick={handleSaveConfig} disabled={!saveName || !saveEmail || saving}
-                    className="flex-[2] py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold disabled:opacity-40">
-                    {saving ? "Se salveaza…" : "Trimite link →"}
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
-                  <svg width="20" height="16" viewBox="0 0 20 16" fill="none">
-                    <path d="M2 8l5 5L18 2" stroke="#111" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-                <h2 className="text-base font-semibold text-gray-900 text-center">Link trimis!</h2>
-                <p className="text-xs text-gray-400 text-center">Am trimis linkul la {saveEmail}. Valabil 30 de zile.</p>
-                <button onClick={() => navigator.clipboard.writeText(saveUrl)}
-                  className="w-full py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600">
-                  📋 Copiaza linkul
-                </button>
-                <button onClick={() => { setSaveModalOpen(false); setSaveSuccess(false); }}
-                  className="w-full py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold">
-                  Inchide
-                </button>
-              </>
-            )}
+            <h2 className="text-base font-semibold text-gray-900">Salveaza PDF</h2>
+            <p className="text-xs text-gray-400">Completati datele pentru a genera oferta.</p>
+            <input
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-900"
+              placeholder="Numele tau"
+              value={pdfName}
+              onChange={e => setPdfName(e.target.value)}
+            />
+            <input
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-900"
+              type="email"
+              placeholder="Email"
+              value={pdfEmail}
+              onChange={e => setPdfEmail(e.target.value)}
+            />
+            <input
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-900"
+              type="tel"
+              placeholder="Telefon"
+              value={pdfPhone}
+              onChange={e => setPdfPhone(e.target.value)}
+            />
+            <div className="flex gap-3">
+              <button onClick={() => setPdfModalOpen(false)}
+                className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600">
+                Anuleaza
+              </button>
+              <button
+                disabled={!pdfName || !pdfEmail || !pdfPhone || exporting}
+                onClick={async () => {
+                  setPdfModalOpen(false);
+                  await handleExportPDF(pdfName, pdfEmail, pdfPhone);
+                }}
+                className="flex-[2] py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold disabled:opacity-40">
+                {exporting ? "PDF…" : "Genereaza PDF →"}
+              </button>
+            </div>
           </div>
         </div>
       )}

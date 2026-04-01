@@ -10,6 +10,7 @@ interface PDFExportOptions {
   dimensions:  WallDimensions;
   screenshot?: string;
   cartUrl?:    string;
+  contact?:    { name: string; email: string; phone: string };
 }
 
 export async function exportKitchenPDF(opts: PDFExportOptions) {
