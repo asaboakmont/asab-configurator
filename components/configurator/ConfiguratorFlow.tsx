@@ -51,13 +51,15 @@ export default function ConfiguratorFlow() {
                 onClick={() => i < stepIndex && setStep(s.id as import("@/types/kitchen").ConfigStep)}
                 disabled={i > stepIndex}
                 className={[
-                  "h-1 rounded-full transition-all duration-300 flex-1",
+                  "h-5 rounded-full transition-all duration-300 flex-1 flex items-center justify-center",
                   i === stepIndex ? "bg-gray-900" : "",
                   i  < stepIndex  ? "bg-gray-300 cursor-pointer hover:bg-gray-400" : "",
                   i  > stepIndex  ? "bg-gray-100 cursor-not-allowed" : "",
                 ].join(" ")}
                 title={s.label}
-              />
+              >
+                <span className={["text-[13px] font-bold", i === stepIndex ? "text-white" : i < stepIndex ? "text-gray-500" : "text-gray-300"].join(" ")}>{i + 1}</span>
+              </button>
             ))}
           </div>
           <p className="text-xs text-gray-400 mt-1.5">
