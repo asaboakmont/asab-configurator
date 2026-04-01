@@ -9,6 +9,7 @@ export default function StepStyle() {
   const [showCapture, setShowCapture] = useState(false);
   const [captureName, setCaptureName] = useState("");
   const [captureEmail, setCaptureEmail] = useState("");
+  const [capturePhone, setCapturePhone] = useState("");
 
   const updateWorktop = (worktopId: string) => {
     const opt = WORKTOP_OPTIONS.find(w => w.id === worktopId);
@@ -150,13 +151,20 @@ export default function StepStyle() {
               value={captureEmail}
               onChange={e => setCaptureEmail(e.target.value)}
             />
+            <input
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-900"
+              type="tel"
+              placeholder="Telefon"
+              value={capturePhone}
+              onChange={e => setCapturePhone(e.target.value)}
+            />
             <div className="flex gap-3">
               <button onClick={() => setShowCapture(false)}
                 className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600">
                 Inapoi
               </button>
               <button
-                disabled={!captureName || !captureEmail}
+                disabled={!captureName || !captureEmail || !capturePhone}
                 onClick={async () => {
                   generate();
                   const { layout, dimensions, appliances, colorway: cw, cabinets, totalPrice } = useConfigStore.getState();
@@ -167,6 +175,7 @@ export default function StepStyle() {
                       config: { layout, dimensions, appliances, colorway: cw, cabinets, totalPrice },
                       name: captureName,
                       email: captureEmail,
+                      phone: capturePhone,
                     }),
                   }).catch(() => {});
                   setShowCapture(false);

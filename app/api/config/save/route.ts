@@ -4,7 +4,7 @@ import { nanoid } from "nanoid";
 
 export async function POST(req: NextRequest) {
   try {
-    const { config, name, email } = await req.json();
+    const { config, name, email, phone } = await req.json();
 
     const { Redis } = await import("@upstash/redis");
     const redis = new Redis({
@@ -44,12 +44,13 @@ export async function POST(req: NextRequest) {
     await notifyResend.emails.send({
       from: "ASAB Configurator <noreply@configurator.asab-design.ro>",
       to: "asaboakmont@gmail.com",
-      subject: `Config salvat: ${name} — ${email}`,
+      subject: `Config salvat: ${name} — ${phone}`,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
           <h2>Config nou salvat</h2>
           <p><strong>Nume:</strong> ${name}</p>
           <p><strong>Email:</strong> ${email}</p>
+          <p><strong>Telefon:</strong> ${phone}</p>
           <a href="${url}" style="display:inline-block; background:#111; color:#fff; padding:12px 24px; border-radius:8px; text-decoration:none; margin:16px 0;">
             Vezi configuratia →
           </a>
