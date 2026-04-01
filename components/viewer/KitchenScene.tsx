@@ -109,7 +109,7 @@ export default function KitchenScene({
         minPolarAngle={Math.PI / 10}
         maxPolarAngle={Math.PI / 2.1}
         minDistance={2}
-        maxDistance={60}
+        maxDistance={95}
         target={[midX, 1.2, 0.315]}
       />
 
