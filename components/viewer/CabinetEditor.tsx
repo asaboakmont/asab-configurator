@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useConfigStore } from "@/store/configuratorStore";
-import { BASE_CABINETS, WALL_CABINETS } from "@/data/skus";
+import { BASE_CABINETS, WALL_CABINETS, TALL_CABINETS } from "@/data/skus";
 import type { Cabinet, WallSide } from "@/types/kitchen";
 import { calcTotalPrice } from "@/lib/rules/resolver";
 
@@ -146,7 +146,7 @@ function WallSection({ title, cabinets, onRemove, onAdd, onMove }: {
         ))}
         {addingBase ? (
           <Picker
-            skus={BASE_CABINETS.filter(s => ["base","base-sink","base-oven","base-drawer","base-dishwasher"].includes(s.type))}
+            skus={[...BASE_CABINETS.filter(s => ["base","base-sink","base-oven","base-drawer","base-dishwasher","base-hob"].includes(s.type)), ...TALL_CABINETS]}
             onPick={(s) => { onAdd("base", s); setAddingBase(false); }}
             onClose={() => setAddingBase(false)} />
         ) : (

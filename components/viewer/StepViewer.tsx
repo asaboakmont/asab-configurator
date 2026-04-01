@@ -5,7 +5,6 @@ import { COLORWAYS } from "@/data/colorways";
 import type { HandleStyle } from "@/types/kitchen";
 import dynamic from "next/dynamic";
 import { exportKitchenPDF } from "@/lib/pdf/exportPDF";
-import FloorPlan from "./FloorPlan";
 import CabinetEditor from "./CabinetEditor";
 
 const KitchenScene = dynamic(() => import("./KitchenScene"), { ssr: false });
@@ -126,8 +125,8 @@ export default function StepViewer() {
 
       <div className="absolute right-4 bottom-48 flex flex-col gap-2">
         <button onClick={() => setShow2D(true)}
-          className="w-11 h-11 bg-white/90 backdrop-blur-sm rounded-full shadow-sm border border-gray-100 flex items-center justify-center text-gray-600 text-xs font-semibold">
-          2D
+          className="bg-white/90 backdrop-blur-sm rounded-full shadow-sm border border-gray-100 flex items-center justify-center text-gray-600 text-xs font-semibold px-3 h-11">
+          Modifica
         </button>
         {layout === "l-shape" && (
           <button onClick={() => setWallBCabs(v => !v)}
@@ -204,8 +203,12 @@ export default function StepViewer() {
           )}
 
           {sheetTab === "cabinets" && (
-            <div className="overflow-y-auto max-h-[40vh] px-2 py-2">
-              <CabinetEditor />
+            <div className="overflow-y-auto max-h-[40vh] px-4 py-4 flex flex-col items-center justify-center gap-3">
+              <p className="text-xs text-gray-400 text-center">Adaugati sau eliminati dulapuri din configurare.</p>
+              <button onClick={() => { setShow2D(true); setShowSheet(false); }}
+                className="w-full py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold">
+                Modifica configurarea →
+              </button>
             </div>
           )}
 
@@ -253,19 +256,11 @@ export default function StepViewer() {
       {show2D && (
         <div className="absolute inset-0 bg-white z-50 overflow-y-auto">
           <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
-            <h2 className="text-base font-semibold text-gray-900">Plan 2D</h2>
+            <h2 className="text-base font-semibold text-gray-900">Modifica configurarea</h2>
             <button onClick={() => setShow2D(false)} className="text-gray-400 text-2xl leading-none">×</button>
           </div>
           <div className="px-4 py-4">
-            <FloorPlan
-              cabinets={visibleCabinets}
-              wallA={dimensions.wallA}
-              wallB={layout === "l-shape" ? (dimensions.wallB ?? 160) : undefined}
-              layout={layout}
-            />
-            <div className="mt-4">
-              <CabinetEditor />
-            </div>
+            <CabinetEditor />
           </div>
         </div>
       )}
