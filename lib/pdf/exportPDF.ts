@@ -169,7 +169,7 @@ export async function exportKitchenPDF(opts: PDFExportOptions) {
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(255, 255, 255);
-    doc.text("ADAUGA IN COS  →", pageW / 2, y + 9, { align: "center" });
+    doc.text("FINALIZEAZA COMANDA", pageW / 2, y + 9, { align: "center" });
     doc.link(margin, y, btnW, btnH, { url: finalCartUrl });
     y += btnH + 4;
     doc.setFontSize(7);
