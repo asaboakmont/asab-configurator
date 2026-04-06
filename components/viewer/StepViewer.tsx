@@ -128,7 +128,7 @@ export default function StepViewer() {
 
       <div className="absolute bottom-0 left-0 right-0">
         <button onClick={() => setShowSheet(v => !v)}
-          className="w-full flex items-center justify-center pt-5 pb-3 bg-white">
+          className="w-full flex items-center justify-center pt-2 pb-1">
           <svg width="38" height="38" viewBox="0 0 20 20" fill="none" className={["transition-transform duration-300", showSheet ? "rotate-180" : ""].join(" ")}>
             <path d="M4 13l6-6 6 6" stroke="#6B7280" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
