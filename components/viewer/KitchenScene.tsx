@@ -96,7 +96,7 @@ export default function KitchenScene({
   return (
     <Canvas
       shadows
-      camera={{ position: [midX, 4.5, 10.0], fov: 55, near: 0.1, far: 1000 }}
+      camera={{ position: [midX, wallA * CM * 0.8, wallA * CM * 1.8], fov: 55, near: 0.1, far: 1000 }}
       style={{ width: "100%", height: "100%" }}
       gl={{
         antialias: true,
