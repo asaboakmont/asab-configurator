@@ -15,7 +15,8 @@ interface ConfiguratorStore {
   colorway:   Colorway;
   contact:    ContactInfo;
   cabinets:   Cabinet[];
-  totalPrice: number;
+  totalPrice:    number;
+  originalPrice: number;
   layoutWarnings: string[];
   setLayout:     (l: LayoutType) => void;
   setDimensions: (d: Partial<WallDimensions>) => void;
@@ -41,8 +42,9 @@ export const useConfigStore = create<ConfiguratorStore>((set, get) => ({
   appliances: defaultAppliances,
   colorway:   COLORWAYS[0],
   contact:    { name: "", email: "", phone: "", city: "" },
-  cabinets:   [],
-  totalPrice: 0,
+  cabinets:      [],
+  totalPrice:    0,
+  originalPrice: 0,
   layoutWarnings: [],
   setLayout:     (layout)   => set({ layout }),
   setDimensions: (d)        => set((s) => ({ dimensions: { ...s.dimensions, ...d } })),
@@ -58,8 +60,7 @@ export const useConfigStore = create<ConfiguratorStore>((set, get) => ({
     }
 
     const { cabinets, warnings } = resolveLayout(layout, dimensions, appliances);
-    const totalPrice = calcTotalPrice(cabinets, dimensions.wallA, dimensions.wallB, layout);
-    set({ cabinets, totalPrice, step: "viewer", layoutWarnings: warnings });
+    const { original, discounted } = calcTotalPrice(cabinets, dimensions.wallA, dimensions.wallB, layout);
+    set({ cabinets, totalPrice: discounted, originalPrice: original, step: "viewer", layoutWarnings: warnings });
   },
 }));
-

@@ -47,7 +47,7 @@ export const TALL_CABINETS: SkuDefinition[] = [
   { sku: "1016",  type: "tall-fridge", width: 60, height: 216, depth: 58, price: 1310, label: "Soldat 600mm Frigider" },
 ];
 
-export const WORKTOP_PRICE_PER_CM = 2.64;
+export const WORKTOP_PRICE_PER_CM = 1.80; // 180 RON per linear meter
 export const HANGING_RAIL = { sku: "4001", label: "Sina Agatare Suspendate 2000mm", price: 44 };
 
 export const ALL_SKUS: SkuDefinition[] = [

@@ -2,6 +2,7 @@ import type {
   Cabinet, WallDimensions, Appliances, LayoutType, WallSide
 } from "@/types/kitchen";
 import { BASE_CABINETS, WALL_CABINETS, TALL_CABINETS } from "@/data/skus";
+import { WORKTOP_PRICE_PER_CM } from "@/data/skus";
 
 export const RULES = {
   MIN_WALL:               120,
@@ -305,13 +306,32 @@ export function resolveLayout(
   return { cabinets, warnings };
 }
 
+// ── REPLACE the DOOR_PRICE_BY_WIDTH constant and calcTotalPrice at the bottom of resolver.ts ──
+
 const DOOR_PRICE_BY_WIDTH: Record<number, number> = {
   40: 80, 45: 90, 50: 100, 60: 110, 80: 140, 95: 180, 100: 190
 };
 
-export function calcTotalPrice(cabinets: Cabinet[], wallA: number, wallB?: number, layout?: LayoutType): number {
-  const cabPrice      = cabinets.reduce((sum, c) => sum + (c.price ?? 0), 0);
-  const worktopLength = wallA + (layout === "l-shape" ? (wallB ?? 0) : 0);
-  const worktopPrice  = worktopLength * 2.64;
-  return Math.round(cabPrice + worktopPrice);
+export const CABINET_DISCOUNT = 0.20; // 20% off cabinets, worktop stays full price
+
+export function calcTotalPrice(
+  cabinets: Cabinet[],
+  wallA: number,
+  wallB?: number,
+  layout?: LayoutType
+): { original: number; discounted: number } {
+  const cabPrice = cabinets.reduce((sum, c) => sum + (c.price ?? 0), 0);
+
+  // Subtract tall cabinet widths from Wall A — no worktop above tall columns
+  const tallWidthA = cabinets
+    .filter(c => c.wall === "A" && c.type.startsWith("tall"))
+    .reduce((sum, c) => sum + c.width, 0);
+
+  // 1.80 RON/cm = 180 RON/linear meter (matches Shopify worktop price)
+  const worktopLength = (wallA - tallWidthA) + (layout === "l-shape" ? (wallB ?? 0) : 0);
+  const worktopPrice  = worktopLength * 1.80;
+
+  const original   = Math.round(cabPrice + worktopPrice);
+  const discounted = Math.round(cabPrice * (1 - CABINET_DISCOUNT) + worktopPrice);
+  return { original, discounted };
 }

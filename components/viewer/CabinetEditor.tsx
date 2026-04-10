@@ -70,8 +70,8 @@ export default function CabinetEditor() {
 
       result.push(...groundResult, ...wallResult);
     }
-    const totalPrice = calcTotalPrice(result, dimensions.wallA, dimensions.wallB);
-    useConfigStore.setState({ cabinets: result, totalPrice });
+    const { discounted, original } = calcTotalPrice(result, dimensions.wallA, dimensions.wallB);
+    useConfigStore.setState({ cabinets: result, totalPrice: discounted, originalPrice: original });
   }
 
   function remove(cab: Cabinet) {
@@ -140,8 +140,8 @@ function WallSection({ title, cabinets, onRemove, onAdd, onMove }: {
             onToggleDirection={() => {
               const { cabinets: allCabs, dimensions: dims } = useConfigStore.getState();
               const newCabs = allCabs.map(c => c === cab ? { ...c, doorDirection: (c.doorDirection === "S" ? "D" : "S") as "S" | "D" } : c);
-              const totalPrice = calcTotalPrice(newCabs, dims.wallA, dims.wallB);
-              useConfigStore.setState({ cabinets: newCabs, totalPrice });
+              const { discounted, original } = calcTotalPrice(newCabs, dims.wallA, dims.wallB);
+              useConfigStore.setState({ cabinets: newCabs, totalPrice: discounted, originalPrice: original });
             }} />
         ))}
         {addingBase ? (
@@ -164,8 +164,8 @@ function WallSection({ title, cabinets, onRemove, onAdd, onMove }: {
             onToggleDirection={() => {
               const { cabinets: allCabs, dimensions: dims } = useConfigStore.getState();
               const newCabs = allCabs.map(c => c === cab ? { ...c, doorDirection: (c.doorDirection === "S" ? "D" : "S") as "S" | "D" } : c);
-              const totalPrice = calcTotalPrice(newCabs, dims.wallA, dims.wallB);
-              useConfigStore.setState({ cabinets: newCabs, totalPrice });
+              const { discounted, original } = calcTotalPrice(newCabs, dims.wallA, dims.wallB);
+              useConfigStore.setState({ cabinets: newCabs, totalPrice: discounted, originalPrice: original });
             }} />
         ))}
         {addingWall ? (
@@ -255,9 +255,3 @@ function Picker({ skus, onPick, onClose }: {
     </div>
   );
 }
-
-
-
-
-
-
