@@ -1,4 +1,4 @@
-import type { CabinetType } from "@/types/kitchen";
+import type { Cabinet, CabinetType, DesignCollectionId } from "@/types/kitchen";
 
 export interface SkuDefinition {
   sku:         string;
@@ -56,8 +56,75 @@ export const ALL_SKUS: SkuDefinition[] = [
   ...TALL_CABINETS,
 ];
 
+export const COLLECTION_SKU_SUFFIX: Record<DesignCollectionId, string> = {
+  japandi: "jpn",
+  germain: "grm",
+  franc: "frc",
+};
+
+export const COLLECTION_PRICE_MULTIPLIER: Record<DesignCollectionId, number> = {
+  japandi: 0.85,
+  germain: 1,
+  franc: 1.48,
+};
+
+export function getCollectionFromSku(sku: string): DesignCollectionId | null {
+  if (sku.endsWith("-jpn")) return "japandi";
+  if (sku.endsWith("-grm")) return "germain";
+  if (sku.endsWith("-frc")) return "franc";
+  return null;
+}
+
+export function applyCollectionPrice(price: number, collection: DesignCollectionId | null): number {
+  if (!collection) return price;
+
+  const multiplier = COLLECTION_PRICE_MULTIPLIER[collection] ?? 1;
+  return Math.round(price * multiplier);
+}
+
+
+const COLLECTION_SUFFIX_PATTERN = /-(jpn|grm|frc)$/;
+
+export function stripCollectionSku(sku: string): string {
+  return sku.replace(COLLECTION_SUFFIX_PATTERN, "");
+}
+
+export function getCollectionSkuSuffix(collection: DesignCollectionId): string {
+  return COLLECTION_SKU_SUFFIX[collection];
+}
+
+export function toCollectionSku(sku: string, collection: DesignCollectionId): string {
+  return `${stripCollectionSku(sku)}-${getCollectionSkuSuffix(collection)}`;
+}
+
+export function applyCollectionToCabinet(cabinet: Cabinet, collection: DesignCollectionId): Cabinet {
+  const baseSku = cabinet.baseSku ?? stripCollectionSku(cabinet.sku);
+  const nextSku = toCollectionSku(baseSku, collection);
+  const definition = getSkuByCode(nextSku);
+
+  return {
+    ...cabinet,
+    sku: nextSku,
+    baseSku,
+    price: definition?.price ?? cabinet.price,
+  };
+}
+
+export function applyCollectionToCabinets(cabinets: Cabinet[], collection: DesignCollectionId): Cabinet[] {
+  return cabinets.map((cabinet) => applyCollectionToCabinet(cabinet, collection));
+}
+
 export function getSkuByCode(sku: string): SkuDefinition | undefined {
-  return ALL_SKUS.find((s) => s.sku === sku);
+  const baseSku = stripCollectionSku(sku);
+  const collection = getCollectionFromSku(sku);
+  const definition = ALL_SKUS.find((s) => s.sku === baseSku);
+
+  if (!definition) return undefined;
+
+  return {
+    ...definition,
+    price: applyCollectionPrice(definition.price, collection),
+  };
 }
 
 export function findBestBase(targetWidth: number): SkuDefinition | undefined {

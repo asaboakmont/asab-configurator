@@ -1,124 +1,216 @@
 "use client";
 import { useState } from "react";
 import { useConfigStore } from "@/store/configuratorStore";
-import { BASE_CABINETS, WALL_CABINETS, TALL_CABINETS } from "@/data/skus";
-import type { Cabinet, WallSide } from "@/types/kitchen";
+import { BASE_CABINETS, WALL_CABINETS, TALL_CABINETS, applyCollectionToCabinet, applyCollectionToCabinets } from "@/data/skus";
+import type { Cabinet, RoomConstraints, WallSide } from "@/types/kitchen";
 import { calcTotalPrice } from "@/lib/rules/resolver";
 
-export default function CabinetEditor() {
-  const { cabinets, dimensions } = useConfigStore();
-  const wallACabs = cabinets.filter(c => c.wall === "A");
-  const wallBCabs = cabinets.filter(c => c.wall === "B" || c.wall === "C");
+interface CabinetEditorProps {
+  activeWall?: WallSide;
+  selectedCabinetKey?: string | null;
+  onSelectCabinet?: (key: string | null) => void;
+}
 
-  function save(newCabs: Cabinet[]) {
-    const result: Cabinet[] = [];
-    for (const wall of ["A", "B", "C"] as WallSide[]) {
-      const tallTypes = ["tall","tall-oven","tall-fridge"];
-      const wallCabTypes = ["wall","wall-corner","wall-hood"];
+export default function CabinetEditor({ activeWall, selectedCabinetKey, onSelectCabinet }: CabinetEditorProps) {
+  const { cabinets, dimensions, collection, layout, constraints } = useConfigStore();
+  const editorWall = activeWall ?? "A";
+  const wallCabs = cabinets.filter(c => c.wall === editorWall);
 
-      // All non-wall cabs (base + tall) — recalc sequentially preserving order
-      const groundCabs = newCabs.filter(c => c.wall === wall && !wallCabTypes.includes(c.type));
-      // For Wall A with L-shape corner, start after the corner gap (60cm)
-      const cs = dimensions.cornerSide ?? "right";
-      const cornerAtLeft = cs === "right";
-      const isLShape = !!(dimensions.wallB && dimensions.wallB > 0);
-      const tallWidth = groundCabs
-        .filter(c => tallTypes.includes(c.type))
-        .reduce((s, c) => s + c.width, 0);
-
-      let cursor = 0;
-      if (wall === "A") {
-        cursor = isLShape ? (cornerAtLeft ? 60 : tallWidth) : tallWidth;
-      } else if ((wall === "B" || wall === "C") && isLShape) {
-        cursor = 100;
-      }
-
-      const groundResult = groundCabs.map(c => {
-        if (c.type === "base-corner") return c; // don't repack corner cabs
-        const r = { ...c, xPos: cursor };
-        cursor += c.width;
-        return r;
-      });
-
-      // Build occupied zones from ground cabs (tall cabs block wall cabs above them)
-      const tallZones = groundResult
-        .filter(c => tallTypes.includes(c.type))
-        .map(c => ({ start: c.xPos, end: c.xPos + c.width }));
-
-      // Wall cabs — skip zones occupied by tall cabs
-      const wallCabs = newCabs.filter(c => c.wall === wall && wallCabTypes.includes(c.type));
-      // Wall A with L-shape: wall cabs also start after corner gap
-      let wallCursor = 0;
-      if (wall === "A") {
-        wallCursor = isLShape ? (cornerAtLeft ? 60 : tallWidth) : tallWidth;
-      } else if ((wall === "B" || wall === "C") && isLShape) {
-        wallCursor = 100;
-      }
-      const wallResult = wallCabs.map(c => {
-        // Don't repack corner cabs
-        if (c.type === "wall-corner") return c;
-        // Advance past any tall zone
-        let safe = wallCursor;
-        for (const zone of tallZones) {
-          if (safe >= zone.start && safe < zone.end) safe = zone.end;
-        }
-        wallCursor = safe;
-        const r = { ...c, xPos: wallCursor };
-        wallCursor += c.width;
-        return r;
-      });
-
-      result.push(...groundResult, ...wallResult);
+  function commit(newCabs: Cabinet[], nextSelectedCabinet?: Cabinet | null) {
+    const collectionResult = applyCollectionToCabinets(newCabs, collection);
+    const { discounted, original } = calcTotalPrice(collectionResult, dimensions.wallA, dimensions.wallB, layout);
+    useConfigStore.setState({ cabinets: collectionResult, totalPrice: discounted, originalPrice: original });
+    if (nextSelectedCabinet === null) {
+      onSelectCabinet?.(null);
+    } else if (nextSelectedCabinet) {
+      const updatedCabinet = collectionResult.find((cabinet) => cabinetKey(cabinet) === cabinetKey(nextSelectedCabinet));
+      onSelectCabinet?.(cabinetKey(updatedCabinet ?? nextSelectedCabinet));
     }
-    const { discounted, original } = calcTotalPrice(result, dimensions.wallA, dimensions.wallB);
-    useConfigStore.setState({ cabinets: result, totalPrice: discounted, originalPrice: original });
-  }
-
-  function remove(cab: Cabinet) {
-    save(cabinets.filter(c => c !== cab));
   }
 
   function add(wall: WallSide, layer: "base" | "wall", sku: typeof BASE_CABINETS[0]) {
-    const newCab: Cabinet = {
+    const draft: Cabinet = applyCollectionToCabinet({
       sku: sku.sku, type: sku.type, width: sku.width,
       height: sku.height, depth: sku.depth,
-      wall, xPos: 0, price: sku.price, label: sku.label,
-    };
-    save([...cabinets, newCab]);
+      wall,
+      xPos: 0,
+      zPos: wall === "I" ? (dimensions.islandDistance ?? 100) + (dimensions.islandDepth ?? 90) / 2 : undefined,
+      runSide: wall === "P" ? dimensions.peninsulaSide ?? "right" : undefined,
+      price: sku.price,
+      label: sku.label,
+    }, collection);
+    const xPos = findNearestValidSlot(draft, cabinets, 1, dimensions, layout, constraints, wallStart(wall, dimensions, layout), true);
+    if (xPos === undefined) {
+      useConfigStore.setState({ layoutWarnings: ["Nu exista spatiu liber pe acest perete pentru dulapul ales.", ...useConfigStore.getState().layoutWarnings] });
+      return;
+    }
+    commit([...cabinets, { ...draft, xPos }], { ...draft, xPos });
   }
 
-  function move(cab: Cabinet, dir: -1 | 1) {
-    const isWall = ["wall","wall-corner","wall-hood"].includes(cab.type);
-    const layer = cabinets.filter(c => c.wall === cab.wall &&
-      (isWall ? ["wall","wall-corner","wall-hood"].includes(c.type) : !["wall","wall-corner","wall-hood"].includes(c.type))
+  function toggleDoorDirection(cab: Cabinet) {
+    const newCabs = cabinets.map((item) =>
+      item === cab ? { ...item, doorDirection: (item.doorDirection === "S" ? "D" : "S") as "S" | "D" } : item
     );
-    const idx = layer.indexOf(cab);
-    const newIdx = idx + dir;
-    if (newIdx < 0 || newIdx >= layer.length) return;
-    const newLayer = [...layer];
-    [newLayer[idx], newLayer[newIdx]] = [newLayer[newIdx], newLayer[idx]];
-    const rest = cabinets.filter(c => !layer.includes(c));
-    save([...rest, ...newLayer]);
+    const selected = newCabs.find((item) => item.sku === cab.sku && item.wall === cab.wall && item.xPos === cab.xPos && item.type === cab.type);
+    commit(newCabs, selected);
+  }
+
+  function selectCabinet(cab: Cabinet) {
+    onSelectCabinet?.(cabinetKey(cab));
   }
 
   return (
     <div className="space-y-4">
-      <WallSection title="Perete A" cabinets={wallACabs}
-        onRemove={remove} onAdd={(l, s) => add("A", l, s)} onMove={move} />
-      {wallBCabs.length > 0 && (
-        <WallSection title="Perete B" cabinets={wallBCabs}
-          onRemove={remove} onAdd={(l, s) => add(wallBCabs[0]?.wall ?? "B", l, s)} onMove={move} />
-      )}
+      <WallSection title={`Modifica ${wallLabel(editorWall)}`} cabinets={wallCabs}
+        selectedCabinetKey={selectedCabinetKey}
+        onSelectCabinet={selectCabinet}
+        onAdd={(l, s) => add(editorWall, l, s)}
+        onToggleDirection={toggleDoorDirection} />
     </div>
   );
 }
 
-function WallSection({ title, cabinets, onRemove, onAdd, onMove }: {
+function cabinetKey(cabinet: Cabinet): string {
+  return `${cabinet.sku}-${cabinet.wall}-${cabinet.type}-${cabinet.xPos}`;
+}
+
+const WALL_CAB_TYPES: Cabinet["type"][] = ["wall", "wall-corner", "wall-hood"];
+const TALL_TYPES: Cabinet["type"][] = ["tall", "tall-oven", "tall-fridge"];
+
+function cabinetLayer(cab: Cabinet): "wall" | "ground" {
+  return WALL_CAB_TYPES.includes(cab.type) ? "wall" : "ground";
+}
+
+function wallStart(wall: WallSide, dimensions: { cornerSide?: "left" | "right" }, layout: string): number {
+  if (wall === "A" && layout === "l-shape" && (dimensions.cornerSide ?? "right") === "right") return 60;
+  if ((wall === "B" || wall === "C") && layout === "l-shape") return 100;
+  if (wall === "P") return 100;
+  return 0;
+}
+
+function wallEnd(wall: WallSide, dimensions: { wallA: number; wallB?: number; peninsulaWidth?: number }, layout: string): number {
+  if (wall === "A") return dimensions.wallA;
+  if ((wall === "B" || wall === "C") && layout === "l-shape") return dimensions.wallB ?? 0;
+  if (wall === "I") return dimensions.wallA;
+  if (wall === "P") return 100 + (dimensions.peninsulaWidth ?? 0);
+  return dimensions.wallA;
+}
+
+function cabinetYRange(cab: Cabinet): [number, number] {
+  if (WALL_CAB_TYPES.includes(cab.type)) return [146.9, 146.9 + cab.height];
+  return [0, cab.height];
+}
+
+function rangesOverlap(aStart: number, aEnd: number, bStart: number, bEnd: number): boolean {
+  return aStart < bEnd && bStart < aEnd;
+}
+
+function verticalOverlap(a: [number, number], b: [number, number]): boolean {
+  return a[0] < b[1] && b[0] < a[1];
+}
+
+function openingYRange(opening: NonNullable<RoomConstraints["openings"]>[number]): [number, number] {
+  const sill = opening.type === "window" ? opening.sillHeight ?? 90 : 0;
+  return [sill, sill + opening.height];
+}
+
+function obstructionYRange(obstruction: NonNullable<RoomConstraints["obstructions"]>[number]): [number, number] {
+  const bottom = obstruction.startsFromFloor === false ? obstruction.yPos ?? 0 : 0;
+  return [bottom, bottom + obstruction.height];
+}
+
+function isValidSlot(cab: Cabinet, xPos: number, allCabs: Cabinet[], dimensions: any, layout: string, constraints: RoomConstraints): boolean {
+  const min = wallStart(cab.wall, dimensions, layout);
+  const max = wallEnd(cab.wall, dimensions, layout);
+  if (xPos < min || xPos + cab.width > max) return false;
+
+  const yRange = cabinetYRange(cab);
+  const layer = cabinetLayer(cab);
+  const start = xPos;
+  const end = xPos + cab.width;
+
+  for (const other of allCabs) {
+    if (other === cab || other.wall !== cab.wall) continue;
+    if (cabinetLayer(other) !== layer) continue;
+    if (rangesOverlap(start, end, other.xPos, other.xPos + other.width)) return false;
+  }
+
+  if (cab.wall === "A" || cab.wall === "B" || cab.wall === "C") {
+    for (const opening of constraints.openings ?? []) {
+      if (opening.wall !== cab.wall) continue;
+      if (!verticalOverlap(yRange, openingYRange(opening))) continue;
+      if (rangesOverlap(start, end, opening.xPos, opening.xPos + opening.width)) return false;
+    }
+
+    for (const obstruction of constraints.obstructions ?? []) {
+      if (obstruction.wall !== cab.wall) continue;
+      if (!verticalOverlap(yRange, obstructionYRange(obstruction))) continue;
+      if (rangesOverlap(start, end, obstruction.xPos, obstruction.xPos + obstruction.width)) return false;
+    }
+
+    const boiler = constraints.boiler;
+    if (boiler?.wall === cab.wall) {
+      const boilerY: [number, number] = [146.9, 146.9 + boiler.height];
+      if (verticalOverlap(yRange, boilerY)) {
+        if (rangesOverlap(start, end, boiler.xPos - boiler.pipeClearance, boiler.xPos + boiler.width + boiler.pipeClearance)) return false;
+      }
+    }
+  }
+
+  if (layer === "wall") {
+    for (const other of allCabs) {
+      if (other === cab || other.wall !== cab.wall || !TALL_TYPES.includes(other.type)) continue;
+      if (rangesOverlap(start, end, other.xPos, other.xPos + other.width)) return false;
+    }
+  }
+
+  if (TALL_TYPES.includes(cab.type)) {
+    for (const other of allCabs) {
+      if (other === cab || other.wall !== cab.wall || !WALL_CAB_TYPES.includes(other.type)) continue;
+      if (rangesOverlap(start, end, other.xPos, other.xPos + other.width)) return false;
+    }
+  }
+
+  return true;
+}
+
+function findNearestValidSlot(
+  cab: Cabinet,
+  allCabs: Cabinet[],
+  dir: -1 | 1,
+  dimensions: any,
+  layout: string,
+  constraints: RoomConstraints,
+  from = cab.xPos,
+  includeCurrent = false
+): number | undefined {
+  const min = wallStart(cab.wall, dimensions, layout);
+  const max = wallEnd(cab.wall, dimensions, layout) - cab.width;
+  const step = 5 * dir;
+  let x = includeCurrent ? from : from + step;
+
+  while (dir > 0 ? x <= max : x >= min) {
+    const snapped = Math.round(x / 5) * 5;
+    if (isValidSlot(cab, snapped, allCabs, dimensions, layout, constraints)) return snapped;
+    x += step;
+  }
+
+  return undefined;
+}
+
+function wallLabel(wall: WallSide): string {
+  if (wall === "I") return "insula";
+  if (wall === "P") return "semi-insula";
+  return `perete ${wall}`;
+}
+
+function WallSection({ title, cabinets, selectedCabinetKey, onSelectCabinet, onAdd, onToggleDirection }: {
   title:    string;
   cabinets: Cabinet[];
-  onRemove: (c: Cabinet) => void;
+  selectedCabinetKey?: string | null;
+  onSelectCabinet: (c: Cabinet) => void;
   onAdd:    (layer: "base" | "wall", sku: typeof BASE_CABINETS[0]) => void;
-  onMove:   (c: Cabinet, dir: -1 | 1) => void;
+  onToggleDirection: (c: Cabinet) => void;
 }) {
   const [addingBase, setAddingBase] = useState(false);
   const [addingWall, setAddingWall] = useState(false);
@@ -133,16 +225,10 @@ function WallSection({ title, cabinets, onRemove, onAdd, onMove }: {
       <div>
         <p className="field-label mb-2">Dulapuri baza</p>
         {baseCabs.map((cab, i) => (
-          <CabRow key={i} cab={cab} index={i} total={baseCabs.length}
-            onRemove={() => onRemove(cab)}
-            onUp={() => onMove(cab, -1)}
-            onDown={() => onMove(cab, 1)}
-            onToggleDirection={() => {
-              const { cabinets: allCabs, dimensions: dims } = useConfigStore.getState();
-              const newCabs = allCabs.map(c => c === cab ? { ...c, doorDirection: (c.doorDirection === "S" ? "D" : "S") as "S" | "D" } : c);
-              const { discounted, original } = calcTotalPrice(newCabs, dims.wallA, dims.wallB);
-              useConfigStore.setState({ cabinets: newCabs, totalPrice: discounted, originalPrice: original });
-            }} />
+          <CabRow key={`${cab.sku}-${cab.wall}-${cab.xPos}-${i}`} cab={cab}
+            selected={selectedCabinetKey === cabinetKey(cab)}
+            onSelect={() => onSelectCabinet(cab)}
+            onToggleDirection={() => onToggleDirection(cab)} />
         ))}
         {addingBase ? (
           <Picker
@@ -157,16 +243,10 @@ function WallSection({ title, cabinets, onRemove, onAdd, onMove }: {
       <div>
         <p className="field-label mb-2">Dulapuri suspendate</p>
         {wallCabs.map((cab, i) => (
-          <CabRow key={i} cab={cab} index={i} total={wallCabs.length}
-            onRemove={() => onRemove(cab)}
-            onUp={() => onMove(cab, -1)}
-            onDown={() => onMove(cab, 1)}
-            onToggleDirection={() => {
-              const { cabinets: allCabs, dimensions: dims } = useConfigStore.getState();
-              const newCabs = allCabs.map(c => c === cab ? { ...c, doorDirection: (c.doorDirection === "S" ? "D" : "S") as "S" | "D" } : c);
-              const { discounted, original } = calcTotalPrice(newCabs, dims.wallA, dims.wallB);
-              useConfigStore.setState({ cabinets: newCabs, totalPrice: discounted, originalPrice: original });
-            }} />
+          <CabRow key={`${cab.sku}-${cab.wall}-${cab.xPos}-${i}`} cab={cab}
+            selected={selectedCabinetKey === cabinetKey(cab)}
+            onSelect={() => onSelectCabinet(cab)}
+            onToggleDirection={() => onToggleDirection(cab)} />
         ))}
         {addingWall ? (
           <Picker
@@ -181,31 +261,30 @@ function WallSection({ title, cabinets, onRemove, onAdd, onMove }: {
   );
 }
 
-function CabRow({ cab, index, total, onRemove, onUp, onDown, onToggleDirection }: {
-  cab: Cabinet; index: number; total: number;
-  onRemove: () => void; onUp: () => void; onDown: () => void; onToggleDirection: () => void;
+function CabRow({ cab, selected, onSelect, onToggleDirection }: {
+  cab: Cabinet;
+  selected: boolean;
+  onSelect: () => void;
+  onToggleDirection: () => void;
 }) {
   return (
-    <div className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-asab-light transition-colors">
-      {/* Order buttons */}
-      <div className="flex flex-col gap-0.5">
-        <button onClick={onUp} disabled={index === 0}
-          className="w-5 h-5 flex items-center justify-center rounded text-asab-stone hover:text-asab-black disabled:opacity-20 text-xs">
-          ▲
-        </button>
-        <button onClick={onDown} disabled={index === total - 1}
-          className="w-5 h-5 flex items-center justify-center rounded text-asab-stone hover:text-asab-black disabled:opacity-20 text-xs">
-          ▼
-        </button>
-      </div>
-      {/* Info */}
+    <div
+      onClick={onSelect}
+      className={[
+        "flex items-center gap-2 py-1.5 px-2 rounded-lg border transition-colors cursor-pointer",
+        selected ? "bg-asab-light border-asab-accent/40" : "border-transparent hover:bg-asab-light",
+      ].join(" ")}
+    >
       <div className="flex-1 min-w-0">
         <p className="text-xs font-medium text-asab-black truncate">{cab.label ?? cab.sku}</p>
         <div className="flex items-center gap-2">
           <p className="text-[10px] text-asab-stone">{cab.width}cm · {(cab.price ?? 0).toLocaleString("ro-RO")} RON</p>
           {!["base-corner","wall-corner"].includes(cab.type) && (
             <button
-              onClick={onToggleDirection}
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleDirection();
+              }}
               className="text-[10px] px-1.5 py-0.5 rounded border border-asab-warm/40 text-asab-stone hover:border-asab-accent hover:text-asab-accent transition-colors"
               title="Schimba directia deschidere usa"
             >
@@ -214,11 +293,6 @@ function CabRow({ cab, index, total, onRemove, onUp, onDown, onToggleDirection }
           )}
         </div>
       </div>
-      {/* Remove */}
-      <button onClick={onRemove}
-        className="w-7 h-7 flex items-center justify-center rounded-lg text-asab-stone hover:bg-red-50 hover:text-red-500 transition-colors text-lg leading-none shrink-0">
-        ×
-      </button>
     </div>
   );
 }

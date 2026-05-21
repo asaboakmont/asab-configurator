@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { Cabinet, Colorway, LayoutType, WallDimensions } from "@/types/kitchen";
+import type { BudgetPreference, Cabinet, Colorway, DesignCollectionId, LayoutType, RoomConstraints, RoomFinishes, WallDimensions } from "@/types/kitchen";
+import { stripCollectionSku, toCollectionSku } from "@/data/skus";
 
 interface DraftOrderPayload {
   cabinets:   Cabinet[];
@@ -9,6 +10,10 @@ interface DraftOrderPayload {
   dimensions: WallDimensions;
   layout:     LayoutType;
   contact:    { name?: string; phone?: string; email?: string };
+  constraints?: RoomConstraints;
+  collection?: DesignCollectionId;
+  budget?: BudgetPreference;
+  roomFinishes?: RoomFinishes;
 }
 
 const SKU_TO_HANDLE: Record<string, string> = {
@@ -55,7 +60,7 @@ const SKU_TO_HANDLE: Record<string, string> = {
 };
 
 // Generate door SKU from cabinet SKU + colorway
-function getDoorSku(cabSku: string, colorwayId: string, direction: string = "S"): string | null {
+function getDoorSku(cabSku: string, colorwayId: string, direction: string = "S", collection: DesignCollectionId = "japandi"): string | null {
   const SKU_TO_DOOR: Record<string, [string, number]> = {
     // Base cabinets [type, width]
     "1001-DR": ["B", 95], "1001-STG": ["B", 95],
@@ -70,10 +75,11 @@ function getDoorSku(cabSku: string, colorwayId: string, direction: string = "S")
     // Tall cabinets
     "1011A": ["T", 60], "1011B": ["T", 60], "1011C": ["T", 60], "1016": ["T", 60],
   };
-  const entry = SKU_TO_DOOR[cabSku];
+  const baseSku = stripCollectionSku(cabSku);
+  const entry = SKU_TO_DOOR[baseSku];
   if (!entry) return null;
   const [cabType, width] = entry;
-  return `F-${cabType}-${width}-${colorwayId.toUpperCase()}-${direction.toUpperCase()}`;
+  return toCollectionSku(`F-${cabType}-${width}-${colorwayId.toUpperCase()}-${direction.toUpperCase()}`, collection);
 }
 
 // Worktop handles
@@ -84,46 +90,50 @@ const WORKTOP_HANDLES: Record<string, string> = {
 
 export async function POST(req: NextRequest) {
   const body: DraftOrderPayload = await req.json();
-  const { cabinets, colorway, totalPrice, layout, contact, dimensions } = body;
+  const { cabinets, colorway, totalPrice, layout, contact, dimensions, constraints, collection, budget, roomFinishes } = body;
 
   const shopDomain = "xuiduq-y4.myshopify.com";
   const storeDomain = process.env.SHOPIFY_STORE_DOMAIN ?? "asab-design.ro";
   const adminToken  = process.env.SHOPIFY_ADMIN_TOKEN ?? "";
 
   const note = encodeURIComponent(
-    `Bucatarie ASAB | ${layout === "l-shape" ? "L" : "Liniar"} | ${colorway.name} | ${totalPrice} RON${contact?.name ? " | " + contact.name : ""}${contact?.phone ? " | " + contact.phone : ""}`
+    `Bucatarie ASAB | ${layoutLabel(layout)} | ${collectionLabel(collection)} | ${colorway.name} | ${budget?.range ?? "buget-neprecizat"} | ${roomFinishes?.floorTexture ?? "pardoseala-neprecizata"} | ${totalPrice} RON | Goluri:${constraints?.openings?.length ?? 0} | Obstacole:${constraints?.obstructions?.length ?? 0}${constraints?.boiler ? " | Cu centrala" : ""}${contact?.name ? " | " + contact.name : ""}${contact?.phone ? " | " + contact.phone : ""}`
   );
 
   // Get unique SKUs to look up — both carcass and door SKUs
   const carcassSkus = Array.from(new Set(cabinets.map(c => c.sku)));
   const doorSkus = Array.from(new Set(cabinets
-    .map(c => getDoorSku(c.sku, colorway.id, c.doorDirection ?? "S"))
+    .map(c => getDoorSku(c.sku, colorway.id, c.doorDirection ?? "S", collection ?? "japandi"))
     .filter(Boolean) as string[]));
-  const worktopHandle = WORKTOP_HANDLES[colorway.worktop];
   const worktopSku = colorway.worktop === "stejar" ? "BL-STEJAR" : "BL-GRIS";
   const uniqueSkus = [...carcassSkus, ...doorSkus, worktopSku];
   const variantMap: Record<string, string> = {};
 
   if (adminToken) {
     await Promise.all(uniqueSkus.map(async (sku) => {
-      const handle = SKU_TO_HANDLE[sku];
-      if (!handle) return;
-      try {
-        const res = await fetch(
-          `https://${shopDomain}/admin/api/2024-01/products.json?handle=${handle}&fields=variants`,
-          { headers: { "X-Shopify-Access-Token": adminToken } }
-        );
-        const data = await res.json();
-        console.log(`Handle ${handle} -> products: ${data?.products?.length}, first variant: ${data?.products?.[0]?.variants?.[0]?.id}`);
-        const vid = data?.products?.[0]?.variants?.[0]?.id;
-        if (vid) variantMap[sku] = String(vid);
-      } catch { /* skip */ }
+      for (const handle of shopifyHandleCandidates(sku)) {
+        try {
+          const res = await fetch(
+            `https://${shopDomain}/admin/api/2024-01/products.json?handle=${handle}&fields=variants`,
+            { headers: { "X-Shopify-Access-Token": adminToken } }
+          );
+          const data = await res.json();
+          const vid = data?.products?.[0]?.variants?.[0]?.id;
+          if (vid) {
+            variantMap[sku] = String(vid);
+            break;
+          }
+        } catch { /* skip */ }
+      }
     }));
   }
 
   // Calculate worktop length in linear meters (rounded up)
   // wallA + wallB + 60cm corner overlap
-  const worktopLengthCm = (dimensions?.wallA ?? 300) + (layout === "l-shape" ? (dimensions?.wallB ?? 0) : 0);
+  const worktopLengthCm =
+    (dimensions?.wallA ?? 300) +
+    (layout === "l-shape" ? (dimensions?.wallB ?? 0) : 0) +
+    (layout === "island" || dimensions?.hasIsland ? (dimensions?.islandWidth ?? 0) : 0);
   const worktopMeters = Math.ceil(worktopLengthCm / 100);
 
   // Build cart items with quantities
@@ -138,7 +148,7 @@ export async function POST(req: NextRequest) {
     if (variantMap[c.sku]) {
       qtyMap[variantMap[c.sku]] = (qtyMap[variantMap[c.sku]] ?? 0) + 1;
     }
-    const doorSku = getDoorSku(c.sku, colorway.id, c.doorDirection ?? "S");
+    const doorSku = getDoorSku(c.sku, colorway.id, c.doorDirection ?? "S", collection ?? "japandi");
     if (doorSku && variantMap[doorSku]) {
       qtyMap[variantMap[doorSku]] = (qtyMap[variantMap[doorSku]] ?? 0) + 1;
     }
@@ -156,3 +166,31 @@ export async function POST(req: NextRequest) {
   });
 }
 
+function layoutLabel(layout: LayoutType): string {
+  const labels: Record<LayoutType, string> = {
+    linear: "Liniar",
+    "l-shape": "In colt",
+    island: "Cu insula",
+    peninsula: "Liniar",
+  };
+  return labels[layout];
+}
+
+function collectionLabel(collection?: DesignCollectionId): string {
+  const labels: Record<DesignCollectionId, string> = {
+    japandi: "Japandi",
+    germain: "Germain",
+    franc: "Franc",
+  };
+  return labels[collection ?? "japandi"];
+}
+
+function shopifyHandleCandidates(sku: string): string[] {
+  const suffixMatch = sku.match(/-(jpn|grm|frc)$/);
+  const suffix = suffixMatch?.[1];
+  const baseSku = stripCollectionSku(sku);
+  const baseHandle = SKU_TO_HANDLE[baseSku] ?? WORKTOP_HANDLES[baseSku];
+  if (!baseHandle) return [];
+  if (!suffix) return [baseHandle];
+  return [`${baseHandle}-${suffix}`, baseHandle];
+}

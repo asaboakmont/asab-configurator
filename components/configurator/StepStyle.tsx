@@ -4,7 +4,7 @@ import { useConfigStore } from "@/store/configuratorStore";
 import { COLORWAYS, WORKTOP_OPTIONS, HANDLE_OPTIONS } from "@/data/colorways";
 
 export default function StepStyle() {
-  const { colorway, setColorway, setStep, generate } = useConfigStore();
+  const { colorway, setColorway, setStep, setContact, setShareUrl, generate } = useConfigStore();
   const [finishFilter, setFinishFilter] = useState<"mat" | "lucios" | "furnir">("mat");
   const [showCapture, setShowCapture] = useState(false);
   const [captureName, setCaptureName] = useState("");
@@ -24,7 +24,7 @@ export default function StepStyle() {
   return (
     <div className="space-y-10">
       <div>
-        <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">Pas 6 din 8</p>
+        <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">Pas 9 din 11</p>
         <h1 className="text-2xl font-semibold text-gray-900">Stil & Culoare</h1>
         <p className="text-sm text-gray-400 mt-1">Alegeti finisajul, blatul si manerele.</p>
       </div>
@@ -44,7 +44,15 @@ export default function StepStyle() {
         <div className="space-y-2">
           {COLORWAYS.filter(cw => cw.finish === finishFilter).map((cw) => (
             <button key={cw.id}
-              onClick={() => setColorway({ ...cw, worktop: colorway.worktop, worktopHex: colorway.worktopHex, handle: colorway.handle, handleHex: colorway.handleHex })}
+              onClick={() => setColorway({
+                ...cw,
+                worktop: colorway.worktop,
+                worktopHex: colorway.worktopHex,
+                handle: colorway.handle,
+                handleHex: colorway.handleHex,
+                plinth: colorway.plinth,
+                plinthHex: colorway.plinthHex,
+              })}
               className={["w-full flex items-center gap-4 p-3 rounded-xl border transition-all text-left",
                 colorway.id === cw.id ? "border-gray-900" : "border-gray-200 hover:border-gray-400"].join(" ")}>
               <div className="w-8 h-10 rounded-lg shrink-0 border border-black/5" style={{ background: cw.doorHex }} />
@@ -166,18 +174,24 @@ export default function StepStyle() {
               <button
                 disabled={!captureName || !captureEmail || !capturePhone}
                 onClick={async () => {
+                  setContact({ name: captureName, email: captureEmail, phone: capturePhone });
                   generate();
-                  const { layout, dimensions, appliances, colorway: cw, cabinets, totalPrice } = useConfigStore.getState();
+                  const { collection, budget, roomFinishes, layout, dimensions, appliances, colorway: cw, cabinets, totalPrice, constraints } = useConfigStore.getState();
                   fetch("/api/config/save", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                      config: { layout, dimensions, appliances, colorway: cw, cabinets, totalPrice },
+                      config: { collection, budget, roomFinishes, layout, dimensions, appliances, colorway: cw, cabinets, totalPrice, constraints },
                       name: captureName,
                       email: captureEmail,
                       phone: capturePhone,
                     }),
-                  }).catch(() => {});
+                  })
+                    .then((res) => (res.ok ? res.json() : undefined))
+                    .then((data) => {
+                      if (data?.url) setShareUrl(data.url);
+                    })
+                    .catch(() => {});
                   setShowCapture(false);
                 }}
                 className="flex-[2] py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold disabled:opacity-40">

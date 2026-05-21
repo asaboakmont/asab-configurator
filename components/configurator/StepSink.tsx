@@ -3,20 +3,19 @@ import { useConfigStore } from "@/store/configuratorStore";
 import type { SinkSize } from "@/types/kitchen";
 
 export default function StepSink() {
-  const { appliances, setAppliances, setStep, layout, dimensions } = useConfigStore();
-  const hasWallB = layout === "l-shape" && (dimensions.wallB ?? 0) > 0;
+  const { appliances, devConstraintsUnlocked, setAppliances, setStep } = useConfigStore();
 
   return (
     <div className="space-y-8">
       <div>
-        <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">Pas 2 din 8</p>
+        <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">Pas 5 din 11</p>
         <h1 className="text-2xl font-semibold text-gray-900">Chiuveta</h1>
-        <p className="text-sm text-gray-400 mt-1">Veti integra o chiuveta in bucatarie?</p>
+        <p className="text-sm text-gray-400 mt-1">Alege daca doresti chiuveta si latimea ei. Pozitia este optimizata automat in configuratie.</p>
       </div>
 
       <div className="space-y-6">
         <div className="grid grid-cols-2 gap-3">
-          <OptionCard active={appliances.hasSink} onClick={() => setAppliances({ hasSink: true })} label="Da" />
+          <OptionCard active={appliances.hasSink} onClick={() => setAppliances({ hasSink: true, sinkWall: "A" })} label="Da" />
           <OptionCard active={!appliances.hasSink} onClick={() => setAppliances({ hasSink: false })} label="Nu" />
         </div>
 
@@ -26,24 +25,15 @@ export default function StepSink() {
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Latime</p>
               <div className="grid grid-cols-2 gap-3">
                 {([60, 80] as SinkSize[]).map((w) => (
-                  <OptionCard key={w} active={appliances.sinkSize === w} onClick={() => setAppliances({ sinkSize: w })} label={`${w} cm`} />
+                  <OptionCard key={w} active={appliances.sinkSize === w} onClick={() => setAppliances({ sinkSize: w, sinkWall: "A" })} label={`${w} cm`} />
                 ))}
               </div>
             </div>
-            {hasWallB && (
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Perete</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <OptionCard active={(appliances.sinkWall ?? "A") === "A"} onClick={() => setAppliances({ sinkWall: "A" })} label="Perete A" />
-                  <OptionCard active={(appliances.sinkWall ?? "A") === "B"} onClick={() => setAppliances({ sinkWall: "B" })} label="Perete B" />
-                </div>
-              </div>
-            )}
           </div>
         )}
       </div>
 
-      <NavButtons onBack={() => setStep("dimensions")} onNext={() => setStep("hob")} />
+      <NavButtons onBack={() => setStep(devConstraintsUnlocked ? "constraints" : "dimensions")} onNext={() => setStep("hob")} />
     </div>
   );
 }

@@ -7,7 +7,7 @@ export default function StepHood() {
   return (
     <div className="space-y-8">
       <div>
-        <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">Pas 5 din 8</p>
+        <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">Pas 8 din 11</p>
         <h1 className="text-2xl font-semibold text-gray-900">Hota</h1>
         <p className="text-sm text-gray-400 mt-1">Veti integra o hota incorporata?</p>
       </div>

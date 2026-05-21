@@ -3,22 +3,28 @@ import { useConfigStore } from "@/store/configuratorStore";
 import type { HobSize, OvenPlacement } from "@/types/kitchen";
 
 export default function StepHob() {
-  const { appliances, setAppliances, setStep, layout, dimensions } = useConfigStore();
-  const hasWallB = layout === "l-shape" && (dimensions.wallB ?? 0) > 0;
+  const { appliances, setAppliances, setStep } = useConfigStore();
+  const selectOven = (hasOven: OvenPlacement, withHobWall = false) => {
+    setAppliances({
+      hasOven,
+      ...(withHobWall ? { hobWall: "A" as const } : {}),
+      ...(hasOven !== "tall-column" ? { hasIntegratedMicrowave: false } : {}),
+    });
+  };
 
   return (
     <div className="space-y-8">
       <div>
-        <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">Pas 3 din 8</p>
+        <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">Pas 6 din 11</p>
         <h1 className="text-2xl font-semibold text-gray-900">Plita & Cuptor</h1>
-        <p className="text-sm text-gray-400 mt-1">Configurati plita si cuptorul.</p>
+        <p className="text-sm text-gray-400 mt-1">Alege aparatele. Configuratorul decide pozitia potrivita pentru integrare, simetrie si incadrare.</p>
       </div>
 
       <div className="space-y-6">
         <div>
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Plita</p>
           <div className="grid grid-cols-2 gap-3">
-            <OptionCard active={appliances.hasHob} onClick={() => setAppliances({ hasHob: true })} label="Da" />
+            <OptionCard active={appliances.hasHob} onClick={() => setAppliances({ hasHob: true, hobWall: "A" })} label="Da" />
             <OptionCard active={!appliances.hasHob} onClick={() => setAppliances({ hasHob: false })} label="Nu" />
           </div>
         </div>
@@ -29,20 +35,10 @@ export default function StepHob() {
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Latime plita</p>
               <div className="grid grid-cols-2 gap-3">
                 {([60, 80] as HobSize[]).map((w) => (
-                  <OptionCard key={w} active={appliances.hobSize === w} onClick={() => setAppliances({ hobSize: w })} label={`${w} cm`} />
+                  <OptionCard key={w} active={appliances.hobSize === w} onClick={() => setAppliances({ hobSize: w, hobWall: "A" })} label={`${w} cm`} />
                 ))}
               </div>
             </div>
-
-            {hasWallB && (
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Perete plita</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <OptionCard active={(appliances.hobWall ?? "A") === "A"} onClick={() => setAppliances({ hobWall: "A" })} label="Perete A" />
-                  <OptionCard active={(appliances.hobWall ?? "A") === "B"} onClick={() => setAppliances({ hobWall: "B" })} label="Perete B" />
-                </div>
-              </div>
-            )}
 
             <div>
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Cuptor</p>
@@ -52,7 +48,7 @@ export default function StepHob() {
                     "none": "Fara", "under-hob": "Sub plita", "tall-column": "Coloana",
                   };
                   return (
-                    <OptionCard key={opt} active={appliances.hasOven === opt} onClick={() => setAppliances({ hasOven: opt })} label={labels[opt]} />
+                    <OptionCard key={opt} active={appliances.hasOven === opt} onClick={() => selectOven(opt, true)} label={labels[opt]} />
                   );
                 })}
               </div>
@@ -64,8 +60,18 @@ export default function StepHob() {
           <div>
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Cuptor</p>
             <div className="grid grid-cols-2 gap-3">
-              <OptionCard active={appliances.hasOven === "none"} onClick={() => setAppliances({ hasOven: "none" })} label="Fara" />
-              <OptionCard active={appliances.hasOven === "tall-column"} onClick={() => setAppliances({ hasOven: "tall-column" })} label="Coloana" />
+              <OptionCard active={appliances.hasOven === "none"} onClick={() => selectOven("none")} label="Fara" />
+              <OptionCard active={appliances.hasOven === "tall-column"} onClick={() => selectOven("tall-column")} label="Coloana" />
+            </div>
+          </div>
+        )}
+
+        {appliances.hasOven === "tall-column" && (
+          <div>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Microunde incorporat</p>
+            <div className="grid grid-cols-2 gap-3">
+              <OptionCard active={!appliances.hasIntegratedMicrowave} onClick={() => setAppliances({ hasIntegratedMicrowave: false })} label="Nu" />
+              <OptionCard active={appliances.hasIntegratedMicrowave} onClick={() => setAppliances({ hasIntegratedMicrowave: true })} label="Da" />
             </div>
           </div>
         )}

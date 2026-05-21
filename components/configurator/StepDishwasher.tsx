@@ -7,7 +7,7 @@ export default function StepDishwasher() {
   return (
     <div className="space-y-8">
       <div>
-        <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">Pas 4 din 8</p>
+        <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">Pas 7 din 11</p>
         <h1 className="text-2xl font-semibold text-gray-900">Masina de spalat vase</h1>
         <p className="text-sm text-gray-400 mt-1">Veti integra o masina de spalat vase?</p>
       </div>
