@@ -1,25 +1,43 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useConfigStore } from "@/store/configuratorStore";
 import { COLORWAYS, WORKTOP_OPTIONS, HANDLE_OPTIONS } from "@/data/colorways";
+import type { WorktopStyle } from "@/types/kitchen";
 
 export default function StepStyle() {
-  const { colorway, setColorway, setStep, setContact, setShareUrl, generate } = useConfigStore();
-  const [finishFilter, setFinishFilter] = useState<"mat" | "lucios" | "furnir">("mat");
+  const { collection, colorway, setColorway, setStep, setContact, setShareUrl, generate } = useConfigStore();
+  const [finishFilter, setFinishFilter] = useState<"mat" | "lucios">("mat");
   const [showCapture, setShowCapture] = useState(false);
   const [captureName, setCaptureName] = useState("");
   const [captureEmail, setCaptureEmail] = useState("");
   const [capturePhone, setCapturePhone] = useState("");
+  const availableFinishes = collection === "franc" ? (["mat"] as const) : (["mat", "lucios"] as const);
+
+  useEffect(() => {
+    if (collection === "franc" && finishFilter !== "mat") {
+      setFinishFilter("mat");
+    }
+  }, [collection, finishFilter]);
 
   const updateWorktop = (worktopId: string) => {
     const opt = WORKTOP_OPTIONS.find(w => w.id === worktopId);
-    if (opt) setColorway({ ...colorway, worktop: opt.id as "stejar" | "gri-piatra", worktopHex: opt.hex });
+    if (opt) setColorway({ ...colorway, worktop: opt.id as WorktopStyle, worktopHex: opt.hex });
   };
 
   const updateHandle = (handleId: string) => {
     const opt = HANDLE_OPTIONS.find(h => h.id === handleId);
     if (opt) setColorway({ ...colorway, handle: opt.id as "inox" | "negru-mat", handleHex: opt.hex });
   };
+
+  const worktopPreviewStyle = (worktop: { hex: string; texture?: string }) =>
+    worktop.texture
+      ? {
+          backgroundColor: worktop.hex,
+          backgroundImage: `url('${worktop.texture}')`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }
+      : { background: worktop.hex };
 
   return (
     <div className="space-y-10">
@@ -33,7 +51,7 @@ export default function StepStyle() {
       <div>
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Finisaj fronturi</p>
         <div className="flex gap-2 mb-4">
-          {(["mat", "lucios", "furnir"] as const).map((f) => (
+          {availableFinishes.map((f) => (
             <button key={f} onClick={() => setFinishFilter(f)}
               className={["px-4 py-1.5 rounded-full text-xs font-semibold border transition-all capitalize",
                 finishFilter === f ? "bg-gray-900 text-white border-gray-900" : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"].join(" ")}>
@@ -80,7 +98,7 @@ export default function StepStyle() {
             <button key={w.id} onClick={() => updateWorktop(w.id)}
               className={["flex items-center gap-3 p-3 rounded-xl border transition-all",
                 colorway.worktop === w.id ? "border-gray-900" : "border-gray-200 hover:border-gray-400"].join(" ")}>
-              <div className="w-8 h-10 rounded-lg shrink-0 border border-black/5" style={{ background: w.hex }} />
+              <div className="w-8 h-10 rounded-lg shrink-0 border border-black/5" style={worktopPreviewStyle(w)} />
               <p className="text-sm font-semibold text-gray-900">{w.label}</p>
               {colorway.worktop === w.id && (
                 <div className="w-4 h-4 rounded-full bg-gray-900 flex items-center justify-center ml-auto shrink-0">

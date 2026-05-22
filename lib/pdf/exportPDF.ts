@@ -172,7 +172,13 @@ export async function exportKitchenPDF(opts: PDFExportOptions) {
     (layout === "l-shape" ? (dimensions.wallB ?? 0) : 0) +
     (layout === "island" || dimensions.hasIsland ? (dimensions.islandWidth ?? 0) : 0);
   const worktopMeters = Math.ceil(worktopLengthCm / 100);
-  const worktopLabel = colorway.worktop === "stejar" ? "Blat stejar" : "Blat gri piatra";
+  const worktopLabels: Record<string, { label: string; sku: string }> = {
+    stejar: { label: "Blat stejar", sku: "BL-STEJAR" },
+    "gri-piatra": { label: "Blat gri piatra", sku: "BL-GRIS" },
+    darkwood: { label: "Blat darkwood", sku: "BL-DARKWOOD" },
+    "white-stone": { label: "Blat white stone", sku: "BL-WHITE-STONE" },
+  };
+  const worktopItem = worktopLabels[colorway.worktop] ?? worktopLabels.stejar;
   const worktopPrice = worktopMeters * 180;
   if (cabinets.length % 2 === 0) {
     doc.setFillColor(250, 248, 244);
@@ -181,8 +187,8 @@ export async function exportKitchenPDF(opts: PDFExportOptions) {
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(15, 14, 13);
-  doc.text(colorway.worktop === "stejar" ? "BL-STEJAR" : "BL-GRIS", margin + 1, y);
-  doc.text(worktopLabel, margin + 22, y);
+  doc.text(worktopItem.sku, margin + 1, y);
+  doc.text(worktopItem.label, margin + 22, y);
   doc.text(`${worktopLengthCm} cm`, margin + 90, y);
   doc.text("-", margin + 130, y);
   doc.text(worktopPrice.toLocaleString("ro-RO"), pageW - margin - 1, y, { align: "right" });

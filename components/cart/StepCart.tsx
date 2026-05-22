@@ -636,7 +636,13 @@ function layoutLabel(layout: LayoutType): string {
 }
 
 function worktopLabel(worktop: string): string {
-  return worktop === "stejar" ? "Stejar" : "Gri piatra";
+  const labels: Record<string, string> = {
+    stejar: "Stejar",
+    "gri-piatra": "Gri piatra",
+    darkwood: "Darkwood",
+    "white-stone": "White stone",
+  };
+  return labels[worktop] ?? "Stejar";
 }
 
 function handleLabel(handle: string): string {

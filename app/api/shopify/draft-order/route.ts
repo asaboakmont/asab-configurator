@@ -19,8 +19,8 @@ interface DraftOrderPayload {
 const SKU_TO_HANDLE: Record<string, string> = {
   // Door fronts
   ...Object.fromEntries(
-    ["alb-mat","gri-deschis-mat","gri-inchis-mat","olive-mat","negru-mat","albastru-mat",
-     "stejar","crem-lucios","alb-lucios","gri-deschis-lucios","gri-inchis-lucios","olive-lucios","negru-lucios"]
+    ["alb-mat","gri-deschis-mat","gri-inchis-mat","burgundy-mat","bej-mat","cacao-mat","olive-mat","negru-mat","albastru-mat",
+     "crem-lucios","alb-lucios","gri-deschis-lucios","gri-inchis-lucios","olive-lucios","negru-lucios"]
     .flatMap(cw => ["B","W","T"].flatMap(t => [40,45,50,60,80,95,100].flatMap(w => [
       [`F-${t}-${w}-${cw.toUpperCase()}-S`, `front-${t.toLowerCase()}-${w}cm-${cw}-s`],
       [`F-${t}-${w}-${cw.toUpperCase()}-D`, `front-${t.toLowerCase()}-${w}cm-${cw}-d`]
@@ -29,6 +29,8 @@ const SKU_TO_HANDLE: Record<string, string> = {
   // Worktops
   "BL-STEJAR": "blat-stejar",
   "BL-GRIS":   "blat-gri-piatra",
+  "BL-DARKWOOD": "blat-darkwood",
+  "BL-WHITE-STONE": "blat-white-stone",
   // Carcass cabinets
   "1001-DR":  "ci-colt-950mm-dreapta",
   "1001-STG": "ci-colt-950mm-stanga",
@@ -84,8 +86,17 @@ function getDoorSku(cabSku: string, colorwayId: string, direction: string = "S",
 
 // Worktop handles
 const WORKTOP_HANDLES: Record<string, string> = {
-  "stejar":     "blat-stejar",
+  "stejar": "blat-stejar",
   "gri-piatra": "blat-gri-piatra",
+  "darkwood": "blat-darkwood",
+  "white-stone": "blat-white-stone",
+};
+
+const WORKTOP_SKUS: Record<string, string> = {
+  "stejar": "BL-STEJAR",
+  "gri-piatra": "BL-GRIS",
+  "darkwood": "BL-DARKWOOD",
+  "white-stone": "BL-WHITE-STONE",
 };
 
 export async function POST(req: NextRequest) {
@@ -105,7 +116,7 @@ export async function POST(req: NextRequest) {
   const doorSkus = Array.from(new Set(cabinets
     .map(c => getDoorSku(c.sku, colorway.id, c.doorDirection ?? "S", collection ?? "japandi"))
     .filter(Boolean) as string[]));
-  const worktopSku = colorway.worktop === "stejar" ? "BL-STEJAR" : "BL-GRIS";
+  const worktopSku = WORKTOP_SKUS[colorway.worktop] ?? "BL-STEJAR";
   const uniqueSkus = [...carcassSkus, ...doorSkus, worktopSku];
   const variantMap: Record<string, string> = {};
 

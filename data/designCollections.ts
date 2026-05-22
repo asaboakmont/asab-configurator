@@ -38,7 +38,6 @@ export const WALL_COLOR_OPTIONS = [
   { label: "Alb cald", value: "#F4EFE7" },
   { label: "Gri deschis", value: "#D8D5CE" },
   { label: "Greige", value: "#C9BDAE" },
-  { label: "Verde salvie", value: "#A7B09A" },
   { label: "Albastru fumuriu", value: "#8A9BA8" },
 ] as const;
 

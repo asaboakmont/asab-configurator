@@ -63,7 +63,7 @@ function loadConfigFromParams(params: URLSearchParams, store: ReturnType<typeof 
 
   const colorway = COLORWAYS.find((cw) => cw.id === params.get("culoare"));
   if (colorway) {
-    const worktop = WORKTOP_OPTIONS.find((w) => w.id === (params.get("blat") === "gri-piatra" ? "gri-piatra" : "stejar"));
+    const worktop = WORKTOP_OPTIONS.find((w) => w.id === params.get("blat")) ?? WORKTOP_OPTIONS[0];
     const handle = HANDLE_OPTIONS.find((h) => h.id === (params.get("manere") === "negru-mat" ? "negru-mat" : "inox"));
     const plinth = HANDLE_OPTIONS.find((h) => h.id === (params.get("plinta") === "negru-mat" ? "negru-mat" : "inox"));
     store.setColorway({

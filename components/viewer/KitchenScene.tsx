@@ -189,9 +189,9 @@ function createDoorMaterial(colorway: Colorway): THREE.Material {
 
   return new THREE.MeshStandardMaterial({
     ...common,
-    roughness: colorway.finish === "furnir" ? 0.74 : 0.62,
+    roughness: 0.62,
     metalness: 0,
-    envMapIntensity: colorway.finish === "furnir" ? 0.34 : 0.24,
+    envMapIntensity: 0.24,
   });
 }
 
@@ -462,10 +462,10 @@ function RenderPresetCamera({
   React.useEffect(() => {
   if (preset === "interactive") return;
 
-  // Use the full wall width so empty sections of the wall are still visible,
-  // not just the tight bounding box of cabinets.
-  const fullWallSpanX = Math.max(bounds.width, wallA * CM);
-  const fullWallSpanZ = Math.max(bounds.depth, (wallB ?? 0) * CM, 1);
+  // Keep a hint of the room dimensions without forcing the camera to frame
+  // every empty centimeter of wall in PDF captures.
+  const framedWallSpanX = Math.max(bounds.width, wallA * CM * 0.72);
+  const framedWallSpanZ = Math.max(bounds.depth, (wallB ?? 0) * CM * 0.72, 1);
 
   const perspectiveCamera = camera as THREE.PerspectiveCamera;
   const fov = preset === "TOP" ? 38 : 46;
@@ -473,24 +473,24 @@ function RenderPresetCamera({
   const aspect = "aspect" in perspectiveCamera ? perspectiveCamera.aspect : 1;
 
   // Margin so cabinets aren't flush against frame edges (1.0 = exact fit).
-  const FRAME_MARGIN = 1.25;
+  const FRAME_MARGIN = 1.08;
 
   // Fit distance considering BOTH width and height of the subject.
-  const fitForWidth = (fullWallSpanX / 2) / (Math.tan(halfFov) * aspect);
-  const fitForHeight = (fullWallSpanZ / 2) / Math.tan(halfFov);
+  const fitForWidth = (framedWallSpanX / 2) / (Math.tan(halfFov) * aspect);
+  const fitForHeight = (framedWallSpanZ / 2) / Math.tan(halfFov);
   // Also account for cabinet vertical height (~2.4m room, cabinets ~2.2m).
   const verticalSubject = 2.4;
   const fitForVertical = (verticalSubject / 2) / Math.tan(halfFov);
 
   const fitDistance = Math.max(fitForWidth, fitForHeight, fitForVertical) * FRAME_MARGIN;
-  const distance = Math.max(6.5, fitDistance);
+  const distance = Math.max(5.2, fitDistance);
 
   let position: THREE.Vector3;
 
   if (preset === "TOP") {
     target.set(bounds.centerX, 0, bounds.centerZ);
-    const topFit = Math.max(fitForWidth, fitForHeight) * 1.45;
-    position = new THREE.Vector3(bounds.centerX, Math.max(6.5, topFit), bounds.centerZ);
+    const topFit = Math.max(fitForWidth, fitForHeight) * 1.22;
+    position = new THREE.Vector3(bounds.centerX, Math.max(5.2, topFit), bounds.centerZ);
   } else if (preset === "NE") {
     position = new THREE.Vector3(
       bounds.centerX + distance * 0.78,
@@ -2166,7 +2166,7 @@ function SelectedCabinetViewportControls({
       <Html
         position={[0, 0, depth / 2 + 0.08]}
         center
-        zIndexRange={[100, 0]}
+        zIndexRange={[30, 0]}
       >
         <button
           type="button"
@@ -2184,7 +2184,7 @@ function SelectedCabinetViewportControls({
       <Html
         position={[width / 2 + 0.16, height / 2 + 0.16, depth / 2 + 0.08]}
         center
-        zIndexRange={[100, 0]}
+        zIndexRange={[30, 0]}
       >
         <button
           type="button"
@@ -2211,7 +2211,7 @@ function ViewportAddButton({
   onAdd: () => void;
 }) {
   return (
-    <Html position={position} center zIndexRange={[100, 0]}>
+    <Html position={position} center zIndexRange={[30, 0]}>
       <button
         type="button"
         onPointerDown={(event) => {
@@ -2713,8 +2713,12 @@ function WorktopMerged({
 }) {
   const mat = useMemo(() => {
     const loader = new THREE.TextureLoader();
-    const texPath = colorway.worktop === "stejar"
+    const isWood = colorway.worktop === "stejar" || colorway.worktop === "darkwood";
+    const isWhiteStone = colorway.worktop === "white-stone";
+    const texPath = isWood
       ? "/textures/worktop-stejar.jpg"
+      : isWhiteStone
+      ? "/textures/whitestone.webp"
       : "/textures/worktop-piatra.jpg";
     const texture = loader.load(texPath);
     texture.colorSpace = THREE.SRGBColorSpace;
@@ -2724,18 +2728,32 @@ function WorktopMerged({
     texture.repeat.set(2, 1);
     return new THREE.MeshStandardMaterial({
       map: texture,
-      color: colorway.worktop === "stejar" ? "#d4b896" : "#7a7570",
-      roughness: colorway.worktop === "stejar" ? 0.8 : 0.9,
+      color:
+        colorway.worktop === "stejar"
+          ? "#d4b896"
+          : colorway.worktop === "darkwood"
+          ? "#3f3328"
+          : isWhiteStone
+          ? "#faf8f2"
+          : "#7a7570",
+      roughness: isWood ? 0.8 : isWhiteStone ? 0.82 : 0.9,
       metalness: 0.0,
-      envMapIntensity: colorway.worktop === "stejar" ? 0.25 : 0.45,
+      envMapIntensity: isWood ? 0.25 : isWhiteStone ? 0.34 : 0.45,
     });
   }, [colorway.worktop]);
 
   const wT = RULES.WORKTOP_THICKNESS * CM;
   const wD = RULES.WORKTOP_DEPTH * CM;
   const CORNER_EXT = RULES.CORNER_BASE_OFFSET * CM;
-  const worktopLineColor = colorway.worktop === "stejar" ? "#6f5435" : "#3f4650";
-  const worktopLineOpacity = colorway.worktop === "stejar" ? 0.2 : 0.26;
+  const worktopLineColor =
+    colorway.worktop === "stejar"
+      ? "#6f5435"
+      : colorway.worktop === "darkwood"
+      ? "#1f1510"
+      : colorway.worktop === "white-stone"
+      ? "#c9c3b8"
+      : "#3f4650";
+  const worktopLineOpacity = colorway.worktop === "stejar" || colorway.worktop === "darkwood" ? 0.2 : 0.26;
 
   return (
     <>

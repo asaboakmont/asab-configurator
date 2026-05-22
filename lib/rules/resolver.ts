@@ -317,6 +317,16 @@ function autoPlaceHobWall(basePlacements: Map<number, Cabinet["type"]>, extraPla
   return map;
 }
 
+function shiftPlacements(
+  placements: Map<number, Cabinet["type"]>,
+  offset: number
+): Map<number, Cabinet["type"]> {
+  if (offset === 0) return placements;
+  const shifted = new Map<number, Cabinet["type"]>();
+  placements.forEach((type, xPos) => shifted.set(xPos + offset, type));
+  return shifted;
+}
+
 function isCookingBase(cabinet: Cabinet): boolean {
   return cabinet.type === "base-hob" || cabinet.type === "base-oven";
 }
@@ -543,8 +553,9 @@ export function resolveLayout(
   const actualBaseWidth = baseWidths.reduce((s, w) => s + w, 0);
   const baseGap = baseLength - actualBaseWidth;
   const adjustedBaseStartX = !cornerAtLeft ? baseStartX + baseGap : baseStartX;
+  const adjustedBasePlacements = shiftPlacements(basePlacements, adjustedBaseStartX - baseStartX);
   setRunBounds(context, "A", "ground", adjustedBaseStartX, baseEndX);
-  buildBaseRun({ wallId: "A", wallLength: baseLength, startX: adjustedBaseStartX, placements: basePlacements, cabinets, customWidths: baseWidths });
+  buildBaseRun({ wallId: "A", wallLength: baseLength, startX: adjustedBaseStartX, placements: adjustedBasePlacements, cabinets, customWidths: baseWidths });
 
   // Tall cabs: placed at right end (Wall B) or left end (Wall C)
   // Tall cabs: start exactly where base run ends
@@ -560,7 +571,7 @@ export function resolveLayout(
   const wallRunLen    = baseLength - (!cornerAtLeft ? baseGap : 0);
   setRunBounds(context, "A", "wall", wallRunStartX, wallRunStartX + wallRunLen);
   const hobPlacement  = wallAAppliances.hasHob && appliances.hasHood
-    ? autoPlaceHobWall(basePlacements) : new Map<number, Cabinet["type"]>();
+    ? autoPlaceHobWall(adjustedBasePlacements) : new Map<number, Cabinet["type"]>();
   buildWallRun({ wallId: "A", wallLength: wallRunLen, startX: wallRunStartX, placements: hobPlacement, cabinets, customWidths: baseWidths });
 
   // ── Perpendicular wall ───────────────────────────────────────────────────
@@ -586,7 +597,7 @@ export function resolveLayout(
 
     const perpHobXPos: number[] = [];
     if (activeLayout === "l-shape" && applianceOverflow.length > 0) {
-      warnings.push(`Unele aparate nu incap pe Peretele A si au fost mutate pe Peretele B.`);
+      warnings.push(`Unele aparate nu incap pe Peretele A si au fost mutate pe Peretele ${perpWall}.`);
     }
 
     if (activeLayout === "l-shape" && applianceOverflow.length > 0) {

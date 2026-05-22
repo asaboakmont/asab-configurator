@@ -3,6 +3,8 @@ import type { Colorway } from "@/types/kitchen";
 const CARCASS  = "#F5F4F0";
 const STEJAR   = "#A67C52";
 const PIATRA   = "#8C8880";
+const DARKWOOD = "#3F3328";
+const WHITE_STONE = "#FAF8F2";
 const INOX     = "#C0C0C0";
 const NEGRU    = "#1C1C1A";
 
@@ -11,10 +13,12 @@ export const COLORWAYS: Colorway[] = [
   { id: "alb-mat",          name: "Alb Mat",          finish: "mat",    doorHex: "#F2F0EC", carcassHex: CARCASS, worktopHex: STEJAR, handleHex: INOX,  worktop: "stejar",    handle: "inox"      },
   { id: "gri-deschis-mat",  name: "Gri Deschis Mat",  finish: "mat",    doorHex: "#C8C5BE", carcassHex: CARCASS, worktopHex: PIATRA, handleHex: INOX,  worktop: "gri-piatra", handle: "inox"     },
   { id: "gri-inchis-mat",   name: "Gri Inchis Mat",   finish: "mat",    doorHex: "#4A4845", carcassHex: CARCASS, worktopHex: PIATRA, handleHex: INOX,  worktop: "gri-piatra", handle: "inox"     },
+  { id: "burgundy-mat",     name: "Burgundy Mat",     finish: "mat",    doorHex: "#6F2A3C", carcassHex: CARCASS, worktopHex: PIATRA, handleHex: INOX,  worktop: "gri-piatra", handle: "inox"     },
+  { id: "bej-mat",          name: "Bej Mat",          finish: "mat",    doorHex: "#D7C4A8", carcassHex: CARCASS, worktopHex: STEJAR, handleHex: NEGRU, worktop: "stejar",    handle: "negru-mat" },
+  { id: "cacao-mat",        name: "Cacao Mat",        finish: "mat",    doorHex: "#6B5244", carcassHex: CARCASS, worktopHex: STEJAR, handleHex: INOX,  worktop: "stejar",    handle: "inox"      },
   { id: "olive-mat",        name: "Verde Olive Mat",   finish: "mat",    doorHex: "#6B7B5E", carcassHex: CARCASS, worktopHex: STEJAR, handleHex: NEGRU, worktop: "stejar",    handle: "negru-mat" },
   { id: "negru-mat",        name: "Negru Mat",         finish: "mat",    doorHex: "#1C1C1A", carcassHex: CARCASS, worktopHex: PIATRA, handleHex: INOX,  worktop: "gri-piatra", handle: "inox"     },
   { id: "albastru-mat",     name: "Albastru Mat",      finish: "mat",    doorHex: "#2C3E52", carcassHex: CARCASS, worktopHex: PIATRA, handleHex: INOX,  worktop: "gri-piatra", handle: "inox"     },
-  { id: "stejar",           name: "Stejar",            finish: "furnir", doorHex: "#B8935A", carcassHex: CARCASS, worktopHex: STEJAR, handleHex: INOX,  worktop: "stejar",    handle: "inox"      },
   // ── Gloss finishes ────────────────────────────────────────────────────────
   { id: "crem-lucios",      name: "Crem Lucios",       finish: "lucios", doorHex: "#EDE0C8", carcassHex: CARCASS, worktopHex: STEJAR, handleHex: INOX,  worktop: "stejar",    handle: "inox"      },
   { id: "alb-lucios",       name: "Alb Lucios",        finish: "lucios", doorHex: "#F8F7F5", carcassHex: CARCASS, worktopHex: STEJAR, handleHex: INOX,  worktop: "stejar",    handle: "inox"      },
@@ -30,6 +34,8 @@ export const HANDLE_OPTIONS = [
 ] as const;
 
 export const WORKTOP_OPTIONS = [
-  { id: "stejar",    label: "Stejar",    hex: STEJAR },
-  { id: "gri-piatra", label: "Gri Piatra", hex: PIATRA },
+  { id: "stejar",      label: "Stejar",      hex: STEJAR },
+  { id: "gri-piatra",  label: "Gri Piatra",  hex: PIATRA },
+  { id: "darkwood",    label: "Darkwood",     hex: DARKWOOD },
+  { id: "white-stone", label: "White Stone",  hex: WHITE_STONE, texture: "/textures/whitestone.webp" },
 ] as const;

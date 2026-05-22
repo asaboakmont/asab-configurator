@@ -172,6 +172,16 @@ export default function StepViewer() {
     setAddPickerTargetId(null);
   }
 
+  const worktopPreviewStyle = (worktop: { hex: string; texture?: string }) =>
+    worktop.texture
+      ? {
+          backgroundColor: worktop.hex,
+          backgroundImage: `url('${worktop.texture}')`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }
+      : { background: worktop.hex };
+
   const handleExportPDF = async (name = "", email = "", phone = "") => {
     setExporting(true);
     try {
@@ -299,7 +309,7 @@ export default function StepViewer() {
                       className={["flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold",
                         colorway.worktop === option.id ? "border-gray-900 bg-gray-900 text-white" : "border-gray-200 text-gray-600"].join(" ")}
                     >
-                      <span className="w-5 h-5 rounded border border-black/5" style={{ background: option.hex }} />
+                      <span className="w-5 h-5 rounded border border-black/5" style={worktopPreviewStyle(option)} />
                       {option.label}
                     </button>
                   ))}

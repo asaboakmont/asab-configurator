@@ -106,16 +106,18 @@ export interface CabinetConflict {
 export interface Colorway {
   id:         string;
   name:       string;
-  finish:     "mat" | "lucios" | "furnir";
+  finish:     "mat" | "lucios";
   doorHex:    string;
   carcassHex: string;
   worktopHex: string;
   handleHex:  string;
   plinthHex?: string;
-  worktop:    "stejar" | "gri-piatra";
+  worktop:    WorktopStyle;
   handle:     "inox" | "negru-mat";
   plinth?:    "inox" | "negru-mat";
 }
+
+export type WorktopStyle = "stejar" | "gri-piatra" | "darkwood" | "white-stone";
 
 export type HandleStyle = "inox" | "negru-mat";
 

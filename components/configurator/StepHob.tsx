@@ -1,9 +1,16 @@
 "use client";
+import { useEffect } from "react";
 import { useConfigStore } from "@/store/configuratorStore";
 import type { HobSize, OvenPlacement } from "@/types/kitchen";
 
 export default function StepHob() {
   const { appliances, setAppliances, setStep } = useConfigStore();
+  useEffect(() => {
+    if (appliances.hobSize === 80) {
+      setAppliances({ hobSize: 60 });
+    }
+  }, [appliances.hobSize, setAppliances]);
+
   const selectOven = (hasOven: OvenPlacement, withHobWall = false) => {
     setAppliances({
       hasOven,
@@ -34,7 +41,7 @@ export default function StepHob() {
             <div>
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Latime plita</p>
               <div className="grid grid-cols-2 gap-3">
-                {([60, 80] as HobSize[]).map((w) => (
+                {([60] as HobSize[]).map((w) => (
                   <OptionCard key={w} active={appliances.hobSize === w} onClick={() => setAppliances({ hobSize: w, hobWall: "A" })} label={`${w} cm`} />
                 ))}
               </div>
