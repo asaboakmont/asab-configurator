@@ -190,7 +190,19 @@ export default function StepViewer() {
       try {
         const res = await fetch("/api/shopify/draft-order", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cabinets: visibleCabinets, colorway, handle: colorway.handle, totalPrice, dimensions, layout, constraints: visibleConstraints, collection, roomFinishes, contact: { name, phone, email } }),
+          body: JSON.stringify({
+            cabinets: visibleCabinets,
+            colorway,
+            handle: colorway.handle,
+            totalPrice,
+            dimensions,
+            layout,
+            constraints: visibleConstraints,
+            collection,
+            roomFinishes,
+            contact: { name, phone, email },
+            previewImage: screenshots[0]?.dataUrl,
+          }),
         });
         if (res.ok) { const data = await res.json(); cartUrl = data.checkoutUrl; }
       } catch(e) { console.warn("Cart URL failed:", e); }

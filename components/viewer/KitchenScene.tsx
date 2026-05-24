@@ -722,7 +722,7 @@ function WallFocusCamera({
   const midX = wallWidth / 2;
   const depthMid = roomDepth / 2;
   const viewport = useThree((state) => state.size);
-  const aspect = Math.max(0.75, viewport.width / Math.max(1, viewport.height));
+  const aspect = editViewAspect(viewport.width, viewport.height);
 
   useFrame(() => {
     if ("fov" in camera) {
@@ -767,7 +767,7 @@ function WallEditOrbitExit({
   const midX = wallWidth / 2;
   const depthMid = roomDepth / 2;
   const viewport = useThree((state) => state.size);
-  const aspect = Math.max(0.75, viewport.width / Math.max(1, viewport.height));
+  const aspect = editViewAspect(viewport.width, viewport.height);
 
   React.useEffect(() => {
     exitedRef.current = false;
@@ -839,6 +839,12 @@ function wallView(
     position: new THREE.Vector3(midX, height, frontDistance),
     target: new THREE.Vector3(midX, targetY, 0.15),
   };
+}
+
+function editViewAspect(width: number, height: number): number {
+  const sideGutterPx = width < 520 ? 10 : 6;
+  const usableWidth = Math.max(1, width - sideGutterPx * 2);
+  return Math.max(0.36, usableWidth / Math.max(1, height));
 }
 
 function Room({
