@@ -278,6 +278,8 @@ export default function StepCart() {
         }}
       />
 
+      <SampleBoxCard />
+
       {error && <div className="border border-red-200 bg-red-50 text-red-600 rounded-xl px-4 py-3 text-sm">{error}</div>}
 
       <section className="space-y-3 pb-8">
@@ -295,6 +297,73 @@ export default function StepCart() {
 
       <LegalInfo />
     </div>
+  );
+}
+
+function SampleBoxCard() {
+  const sampleUrl = "https://asab-design.ro/products/cutie-mostre-fronturi-blaturi-de-bucatarie?srsltid=AfmBOorlQalJSjAVmtBf-y5U0712dfesF9cPfEL5X47mcDXae-NL623s";
+  const sampleImage = "https://asab-design.ro/cdn/shop/files/ChatGPTImageSep23_2025_01_08_56PM.png?v=1758622270&width=1946";
+
+  return (
+    <section className="rounded-2xl border border-[#e8dfd1] bg-[#f8f3eb] p-4 space-y-4">
+      <div className="grid grid-cols-[104px_1fr] gap-4 items-start">
+        <a
+          href={sampleUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block aspect-square rounded-2xl border border-black/10 bg-white bg-cover bg-center bg-no-repeat shadow-sm"
+          style={{ backgroundImage: "url('" + sampleImage + "')" }}
+          aria-label="Comanda cutia de mostre"
+        />
+
+        <div className="min-w-0">
+          <span className="inline-flex rounded-full border border-black/10 bg-white px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-gray-700">
+            Recomandat inainte de comanda
+          </span>
+          <h2 className="mt-2 text-base font-bold leading-tight text-gray-900">
+            Comanda cutia de mostre si alege materialele in realitate.
+          </h2>
+          <p className="mt-1 text-xs leading-relaxed text-gray-600">
+            Verifici fronturile si blaturile in lumina casei tale, apoi primesti voucher de 100 RON pentru bucataria ASAB.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 rounded-2xl border border-black/10 bg-white p-3">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Pret cutie mostre</p>
+          <p className="mt-1 text-2xl font-black tracking-tight text-gray-900">35 RON</p>
+        </div>
+        <div className="text-right">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Voucher bucatarie</p>
+          <p className="mt-1 text-2xl font-black tracking-tight text-gray-900">100 RON</p>
+        </div>
+      </div>
+
+      <ul className="grid gap-2 text-xs leading-relaxed text-gray-700">
+        <SampleBenefit text="Vezi textura si nuanta fronturilor inainte de alegerea finala." />
+        <SampleBenefit text="Compari blaturile cu lumina reala din locuinta ta." />
+        <SampleBenefit text="Ideal dupa ce ai generat proiectul in configurator." />
+      </ul>
+
+      <a
+        href={sampleUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center justify-center rounded-xl border border-gray-900 bg-white px-4 py-3 text-sm font-semibold text-gray-900 transition-all hover:bg-gray-900 hover:text-white"
+      >
+        Comanda cutia de mostre
+      </a>
+    </section>
+  );
+}
+
+function SampleBenefit({ text }: { text: string }) {
+  return (
+    <li className="grid grid-cols-[20px_1fr] gap-2">
+      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gray-900 text-[10px] font-bold text-white">✓</span>
+      <span>{text}</span>
+    </li>
   );
 }
 
