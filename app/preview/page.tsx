@@ -1,52 +1,78 @@
 "use client";
-import { useEffect } from "react";
-import ConfiguratorFlow from "@/components/configurator/ConfiguratorFlow";
-import { useConfigStore } from "@/store/configuratorStore";
-import { COLORWAYS, HANDLE_OPTIONS, WORKTOP_OPTIONS } from "@/data/colorways";
-import type { BacksplashTexture, BudgetPreference, BudgetRange, ConfigStep, DesignCollectionId, FloorTexture, LayoutType, OvenPlacement, WallDimensions } from "@/types/kitchen";
 
-export default function Home() {
+import dynamic from "next/dynamic";
+import { useEffect, useState } from "react";
+import { COLORWAYS, HANDLE_OPTIONS, WORKTOP_OPTIONS } from "@/data/colorways";
+import { useConfigStore } from "@/store/configuratorStore";
+import type {
+  BacksplashTexture,
+  DesignCollectionId,
+  FloorTexture,
+  LayoutType,
+  OvenPlacement,
+  WallDimensions,
+} from "@/types/kitchen";
+
+const KitchenScene = dynamic(() => import("@/components/viewer/KitchenScene"), { ssr: false });
+
+export default function PreviewPage() {
+  const [ready, setReady] = useState(false);
+  const {
+    cabinets,
+    totalPrice,
+    colorway,
+    layout,
+    dimensions,
+    constraints,
+    collection,
+    roomFinishes,
+  } = useConfigStore();
+
   useEffect(() => {
     const store = useConfigStore.getState();
     const params = new URLSearchParams(window.location.search);
-    const configId = params.get("config");
-    if (!configId) {
-      loadConfigFromParams(params, store);
-      return;
-    }
-
-    fetch(`/api/config/load?id=${configId}`)
-      .then(r => r.json())
-      .then(({ config }) => {
-        if (!config) return;
-        const c = typeof config === "string" ? JSON.parse(config) : config;
-        if (c.layout)     store.setLayout(c.layout);
-        if (c.dimensions) store.setDimensions(c.dimensions);
-        if (c.appliances) store.setAppliances(c.appliances);
-        if (c.colorway)   store.setColorway(c.colorway);
-        if (c.constraints) store.setConstraints(c.constraints);
-        if (c.collection) store.setCollection(parseCollection(c.collection));
-        if (c.budget) store.setBudget(normalizeBudget(c.budget));
-        if (c.roomFinishes) store.setRoomFinishes(c.roomFinishes);
-        store.generate();
-      })
-      .catch(console.error);
+    loadPreviewFromParams(params, store);
+    store.generate();
+    setReady(true);
   }, []);
 
   return (
-    <main className="min-h-screen bg-asab-cream">
-      <ConfiguratorFlow />
+    <main className="relative h-screen w-screen overflow-hidden bg-gray-50">
+      {ready && (
+        <KitchenScene
+          cabinets={cabinets}
+          colorway={colorway}
+          wallA={dimensions.wallA}
+          wallB={layout === "l-shape" ? dimensions.wallB ?? 160 : undefined}
+          cornerSide={dimensions.cornerSide ?? "right"}
+          constraints={constraints}
+          collection={collection}
+          roomFinishes={roomFinishes}
+          renderPreset="interactive"
+        />
+      )}
+
+      <div className="absolute right-4 top-4 z-10 rounded-2xl border border-gray-100 bg-white/90 px-4 py-3 shadow-lg backdrop-blur">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+          Total estimat
+        </p>
+        <p className="text-xl font-semibold text-gray-900">
+          {totalPrice.toLocaleString("ro-RO")} RON
+        </p>
+      </div>
     </main>
   );
 }
 
-function loadConfigFromParams(params: URLSearchParams, store: ReturnType<typeof useConfigStore.getState>) {
-  if (!params.has("tip") && !params.has("p1")) return;
-
+function loadPreviewFromParams(
+  params: URLSearchParams,
+  store: ReturnType<typeof useConfigStore.getState>
+) {
   const layout = parseLayout(params.get("tip"));
   const dimensions: Partial<WallDimensions> = {};
   const wallA = Number(params.get("p1"));
   const wallB = Number(params.get("p2"));
+
   if (Number.isFinite(wallA) && wallA > 0) dimensions.wallA = wallA;
   if (Number.isFinite(wallB) && wallB > 0) dimensions.wallB = wallB;
 
@@ -60,12 +86,14 @@ function loadConfigFromParams(params: URLSearchParams, store: ReturnType<typeof 
 
   store.setLayout(layout === "peninsula" ? "linear" : layout);
   store.setDimensions(dimensions);
+  store.setCollection(parseCollection(params.get("colectie")));
 
   const colorway = COLORWAYS.find((cw) => cw.id === params.get("culoare"));
   if (colorway) {
     const worktop = WORKTOP_OPTIONS.find((w) => w.id === params.get("blat")) ?? WORKTOP_OPTIONS[0];
     const handle = HANDLE_OPTIONS.find((h) => h.id === (params.get("manere") === "negru-mat" ? "negru-mat" : "inox"));
     const plinth = HANDLE_OPTIONS.find((h) => h.id === (params.get("plinta") === "negru-mat" ? "negru-mat" : "inox"));
+
     store.setColorway({
       ...colorway,
       worktop: worktop?.id ?? "stejar",
@@ -86,24 +114,6 @@ function loadConfigFromParams(params: URLSearchParams, store: ReturnType<typeof 
     dishwasherSize: params.get("masina") === "45" ? 45 : 60,
   });
 
-  store.setContact({
-    name: params.get("nume") ?? "",
-    email: params.get("email") ?? "",
-    phone: params.get("telefon") ?? "",
-    city: params.get("oras") ?? "",
-  });
-
-  const collection = parseCollection(params.get("colectie"));
-  store.setCollection(collection);
-  const budgetRange = parseBudgetRange(params.get("buget"));
-  const priority = parseBudgetPriority(params.get("prioritate"));
-  if (budgetRange || priority) {
-    store.setBudget({
-      ...(budgetRange ? { range: budgetRange } : {}),
-      ...(priority ? { priority } : {}),
-    });
-  }
-
   const wallColor = params.get("pereti");
   const floorColor = params.get("pardoseala");
   const floorTexture = parseFloorTexture(params.get("pardoseala_textura"));
@@ -118,11 +128,6 @@ function loadConfigFromParams(params: URLSearchParams, store: ReturnType<typeof 
       ...(backsplashTexture ? { backsplashTexture } : {}),
     });
   }
-
-  store.generate();
-
-  const step = parseStep(params.get("step"));
-  if (step) store.setStep(step);
 }
 
 function parseLayout(value: string | null): LayoutType {
@@ -159,53 +164,6 @@ function parseOven(value: string | null): OvenPlacement {
 function parseCollection(value: unknown): DesignCollectionId {
   if (value === "germain" || value === "franc") return value;
   return "japandi";
-}
-
-function parseStep(value: unknown): ConfigStep | undefined {
-  if (value === "stepDimension" || value === "stepDimensions") return "dimensions";
-  if (
-    value === "collection" ||
-    value === "room" ||
-    value === "dimensions" ||
-    value === "constraints" ||
-    value === "sink" ||
-    value === "hob" ||
-    value === "dishwasher" ||
-    value === "hood" ||
-    value === "style" ||
-    value === "viewer" ||
-    value === "cart"
-  ) {
-    return value;
-  }
-  return undefined;
-}
-
-function normalizeBudget(value: Partial<BudgetPreference>): Partial<BudgetPreference> {
-  return {
-    ...(parseBudgetRange(value.range) ? { range: parseBudgetRange(value.range) } : {}),
-    ...(parseBudgetPriority(value.priority) ? { priority: parseBudgetPriority(value.priority) } : {}),
-  };
-}
-
-function parseBudgetRange(value: unknown): BudgetRange | undefined {
-  if (value === "under-10000") return "under-4000";
-  if (value === "10000-15000") return "4000-6000";
-  if (value === "15000-25000" || value === "25000-plus") return "7000-10000";
-  if (
-    value === "under-4000" ||
-    value === "4000-6000" ||
-    value === "7000-10000" ||
-    value === "not-sure"
-  ) {
-    return value;
-  }
-  return undefined;
-}
-
-function parseBudgetPriority(value: unknown): BudgetPreference["priority"] | undefined {
-  if (value === "price" || value === "balanced" || value === "premium") return value;
-  return undefined;
 }
 
 function parseFloorTexture(value: unknown): FloorTexture | undefined {
