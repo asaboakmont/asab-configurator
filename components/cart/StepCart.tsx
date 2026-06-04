@@ -411,7 +411,8 @@ function TechnicianBooking({ config }: { config: unknown }) {
         }),
       });
 
-      if (!res.ok) throw new Error("Nu am putut trimite cererea de verificare.");
+      const data = await res.json().catch(() => undefined);
+      if (!res.ok) throw new Error(data?.error ?? "Nu am putut trimite cererea de verificare.");
       setSuccess(true);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "A apărut o eroare. Vă rugăm încercați din nou.");
@@ -524,7 +525,7 @@ function TechnicianBooking({ config }: { config: unknown }) {
 
       {success && (
         <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-          Cererea a fost trimisă. Un tehnician ASAB va analiza proiectul și te va contacta pentru confirmare.
+          Cererea a fost trimisă. Un designer ASAB DESIGN va analiza proiectul si va reveni la ora selectata pentru consultanta dvs.
         </div>
       )}
 
