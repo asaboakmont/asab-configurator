@@ -361,7 +361,7 @@ export default function StepViewer() {
                 {exporting ? "PDF..." : "Salveaza PDF"}
               </button>
               <button onClick={() => setStep("cart")} className="py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold">
-                Verifica proiect
+                Modifica cu un Designer
               </button>
             </div>
           </div>

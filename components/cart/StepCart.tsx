@@ -161,7 +161,7 @@ export default function StepCart() {
 
       <section className="space-y-3">
         <h2 className="text-xl font-bold text-gray-900 tracking-tight">
-          Verifica proiectul cu un Designer telefonic 100% Gratuit
+          Modifica proiectul cu un Designer telefonic 100% Gratuit (Proiect 3D inclus)
         </h2>
         <TechnicianBooking
           config={{
