@@ -160,6 +160,28 @@ export default function StepCart() {
       </section>
 
       <section className="space-y-3">
+        <h2 className="text-xl font-bold text-gray-900 tracking-tight">
+          Verifica proiectul cu un Designer telefonic 100% Gratuit
+        </h2>
+        <TechnicianBooking
+          config={{
+            cabinets,
+            colorway,
+            totalPrice,
+            dimensions,
+            layout,
+            appliances,
+            constraints,
+            collection,
+            budget,
+            roomFinishes,
+          }}
+        />
+      </section>
+
+      <SampleBoxCard />
+
+      <section className="space-y-3">
         <SectionTitle title="Ce include experiența ASAB" />
         <div className="grid grid-cols-2 gap-3">
           <TrustCard
@@ -258,27 +280,6 @@ export default function StepCart() {
       )}
 
       <OrderTrackingPreview />
-
-      <h2 className="text-lg font-bold text-gray-900 pt-2 tracking-tight">
-        Verifica proiectul cu un tehnician telefonic 100% Gratuit
-      </h2>
-
-      <TechnicianBooking
-        config={{
-          cabinets,
-          colorway,
-          totalPrice,
-          dimensions,
-          layout,
-          appliances,
-          constraints,
-          collection,
-          budget,
-          roomFinishes,
-        }}
-      />
-
-      <SampleBoxCard />
 
       {error && <div className="border border-red-200 bg-red-50 text-red-600 rounded-xl px-4 py-3 text-sm">{error}</div>}
 
@@ -424,7 +425,7 @@ function TechnicianBooking({ config }: { config: unknown }) {
       <div>
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Alege o zi avantajoasă</p>
         <p className="text-sm text-gray-400 mt-1">
-          Alege un interval, lasă datele tale, iar un tehnician ASAB va verifica proiectul și te va contacta pentru confirmare.
+          Alege un interval, lasă datele tale, iar un tehnician ASAB te va contacta pentru consultanta proiectului.
         </p>
       </div>
 
