@@ -350,6 +350,13 @@ export default function StepViewer() {
             </div>
           )}
           <div className="bg-white border-t border-gray-100 px-4 pt-3 pb-4 space-y-2">
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-700">Bucatarie gata asamblata</p>
+              <p className="mt-0.5 text-xs leading-relaxed text-emerald-900">
+                Corpurile vin deja asamblate, doar trebuie puse pe pozitie.
+              </p>
+            </div>
+
             <div className="grid grid-cols-3 gap-2">
               <FinishControl label="Culoare usi" swatch={colorway.doorHex} onClick={() => setFinishPicker((value) => value === "doors" ? null : "doors")} />
               <FinishControl label="Culoare blat" swatch={colorway.worktopHex} onClick={() => setFinishPicker((value) => value === "worktop" ? null : "worktop")} />

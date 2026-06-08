@@ -130,6 +130,12 @@ export default function StepCart() {
         <p className="text-sm text-gray-400 mt-1">
           Am salvat configuratia ta si am pregatit un rezumat al bucatariei. Urmatorul pas este o verificare tehnica rapida cu un specialist ASAB pentru a confirma dimensiunile, pozitionarea instalatiilor si compatibilitatea mobilierului cu spatiul tau.
         </p>
+        <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+          <p className="text-base font-extrabold text-emerald-900">Bucatarie gata asamblata</p>
+          <p className="mt-1 text-sm font-semibold leading-relaxed text-emerald-900">
+            Bucataria ta este pregatita cu corpuri deja asamblate, livrate ca module solide. Asta inseamna montaj mai rapid si mai putina munca in locuinta.
+          </p>
+        </div>
       </header>
 
       <section className="border border-gray-100 bg-gray-50 rounded-2xl p-4 space-y-4">
@@ -186,8 +192,8 @@ export default function StepCart() {
         <div className="grid grid-cols-2 gap-3">
           <TrustCard
             icon="▦"
-            title="Mobilier configurat"
-            text="Corpuri generate pe baza dimensiunilor și opțiunilor alese."
+            title="Bucatarie gata asamblata"
+            text="Module solide, care trebuie doar puse pe pozitie."
           />
           <TrustCard
             icon="▣"
@@ -267,7 +273,7 @@ export default function StepCart() {
         <SectionTitle title="Informații importante" />
         <div className="border border-gray-100 rounded-2xl p-4 space-y-4">
           <InfoStep number="1" title="Livrare" text="Primești estimare și actualizări pe etape până la livrare." />
-          <InfoStep number="2" title="Montaj" text="Ai video pentru fiecare produs și suport zilnic pentru instrucțiuni." />
+          <InfoStep number="2" title="Montaj" text="Corpurile sunt livrate deja asamblate; ai video si suport zilnic pentru pasii de montaj." />
           <InfoStep number="3" title="Retur" text="Produsele standard au drepturi de retur; produsele personalizate trebuie explicate separat." />
           <InfoStep number="4" title="Garanție" text="Garanție legală, procedură de reclamații și condiții clare pentru montaj incorect." />
         </div>

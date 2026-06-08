@@ -33,6 +33,13 @@ export default function StepCollection() {
         </p>
       </div>
 
+      <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+        <p className="text-base font-extrabold text-emerald-900">Bucatarie gata asamblata</p>
+        <p className="mt-1 text-sm font-semibold leading-relaxed text-emerald-900">
+          Corpurile sunt livrate deja asamblate, asa ca trebuie doar puse pe pozitie acasa.
+        </p>
+      </div>
+
       <div className="space-y-3">
         {DESIGN_COLLECTIONS.map((item) => {
           const isActive = collection === item.id;
