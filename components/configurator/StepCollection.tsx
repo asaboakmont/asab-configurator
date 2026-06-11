@@ -1,8 +1,8 @@
 "use client";
 
 import { useConfigStore } from "@/store/configuratorStore";
-import { BUDGET_OPTIONS, DESIGN_COLLECTIONS } from "@/data/designCollections";
-import type { BudgetPreference } from "@/types/kitchen";
+import { DESIGN_COLLECTIONS } from "@/data/designCollections";
+import AssembledKitchenVideo from "./AssembledKitchenVideo";
 
 // Drop your Shopify CDN URLs here. Keys must match item.id from DESIGN_COLLECTIONS.
 const COLLECTION_IMAGES: Record<string, string> = {
@@ -12,16 +12,8 @@ const COLLECTION_IMAGES: Record<string, string> = {
   franc:   "https://cdn.shopify.com/s/files/1/0897/6747/7627/files/37-Entry-Pic-1.png?v=1778948748",
 };
 
-type BudgetRange = NonNullable<BudgetPreference["range"]>;
-
-const BUDGET_AMOUNTS: Partial<Record<BudgetRange, number>> = {
-  "under-4000": 4000,
-  "4000-6000": 6000,
-  "7000-10000": 10000,
-};
-
 export default function StepCollection() {
-  const { collection, budget, setCollection, setBudget, setStep } = useConfigStore();
+  const { collection, setCollection, setStep } = useConfigStore();
 
   return (
     <div className="space-y-8">
@@ -96,65 +88,7 @@ export default function StepCollection() {
         })}
       </div>
 
-      <div className="space-y-4 border border-gray-100 rounded-2xl p-4">
-        <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Buget orientativ</p>
-          <p className="text-xs text-gray-400 mt-1">
-            Ajuta specialistul ASAB sa calibreze solutia fara sa blocheze configurarea.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          {BUDGET_OPTIONS.map((option) => {
-            const isActive = budget.range === option.id;
-            return (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() =>
-                  setBudget({
-                    range: option.id,
-                    amount: option.id === "not-sure" ? undefined : BUDGET_AMOUNTS[option.id],
-                  })
-                }
-                className={[
-                  "min-h-12 rounded-xl border px-3 py-2.5 text-xs font-semibold leading-snug transition-colors",
-                  isActive
-                    ? "border-gray-900 bg-gray-900 text-white"
-                    : "border-gray-200 bg-white text-gray-700 hover:border-gray-400",
-                ].join(" ")}
-              >
-                {option.label}
-              </button>
-            );
-          })}
-        </div>
-
-        <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Prioritate</p>
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { id: "price", label: "Pret" },
-              { id: "balanced", label: "Echilibru" },
-              { id: "premium", label: "Premium" },
-            ].map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => setBudget({ priority: option.id as BudgetPreference["priority"] })}
-                className={[
-                  "py-2 rounded-lg border text-xs font-semibold",
-                  budget.priority === option.id
-                    ? "border-gray-900 bg-gray-900 text-white"
-                    : "border-gray-200 text-gray-600",
-                ].join(" ")}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+      <AssembledKitchenVideo />
 
       <button
         onClick={() => setStep("room")}

@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import AssembledKitchenVideo from "@/components/configurator/AssembledKitchenVideo";
 import { useConfigStore } from "@/store/configuratorStore";
 import {
   BACKSPLASH_OPTIONS,
@@ -186,6 +187,8 @@ export default function StepCart() {
       </section>
 
       <SampleBoxCard />
+
+      <AssembledKitchenVideo />
 
       <section className="space-y-3">
         <SectionTitle title="Ce include experiența ASAB" />
@@ -526,7 +529,7 @@ function TechnicianBooking({ config }: { config: unknown }) {
         disabled={!isValid || submitting}
         className="w-full py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold disabled:opacity-40 transition-all"
       >
-        {submitting ? "Se trimite cererea…" : "Trimite cererea de verificare"}
+        {submitting ? "Se trimite cererea…" : "Trimite catre Designer"}
       </button>
 
       {success && (
