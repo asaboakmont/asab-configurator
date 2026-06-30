@@ -275,12 +275,6 @@ export default function StepViewer() {
           className="pointer-events-auto bg-white/90 backdrop-blur-sm text-gray-600 text-xs font-semibold rounded-full px-3 py-1.5 shadow-sm border border-gray-100">
           ← Inapoi
         </button>
-        <div className="bg-white/90 backdrop-blur-sm rounded-xl px-4 py-2 shadow-sm border border-gray-100">
-          <p className="text-[10px] text-gray-400 uppercase tracking-widest">Total estimat</p>
-          <p className="text-lg font-semibold text-gray-900">
-            {(totalPrice ?? 0).toLocaleString("ro-RO")} <span className="text-xs font-normal text-gray-400">RON</span>
-          </p>
-        </div>
       </div>
       )}
 
@@ -368,7 +362,7 @@ export default function StepViewer() {
                 {exporting ? "PDF..." : "Salveaza PDF"}
               </button>
               <button onClick={() => setStep("cart")} className="py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold">
-                Modifica cu un Designer
+                Afla pretul
               </button>
             </div>
           </div>

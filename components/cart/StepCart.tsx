@@ -1,6 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
-import AssembledKitchenVideo from "@/components/configurator/AssembledKitchenVideo";
+import { useState, type ReactNode } from "react";
 import { useConfigStore } from "@/store/configuratorStore";
 import {
   BACKSPLASH_OPTIONS,
@@ -10,11 +9,9 @@ import {
   WALL_COLOR_OPTIONS,
 } from "@/data/designCollections";
 import type {
-  Appliances,
   BudgetPreference,
   DesignCollectionId,
   LayoutType,
-  OvenPlacement,
   RoomFinishes,
 } from "@/types/kitchen";
 
@@ -30,113 +27,17 @@ export default function StepCart() {
     collection,
     budget,
     roomFinishes,
-    contact,
     setStep,
   } = useConfigStore();
 
-  const [submitting, setSubmitting] = useState(false);
-  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
   const hasIsland = layout === "island" || dimensions.hasIsland === true;
-
-  const handleSubmit = async () => {
-    setSubmitting(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/shopify/draft-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          cabinets,
-          colorway,
-          handle: colorway.handle,
-          totalPrice,
-          dimensions,
-          layout,
-          contact,
-          constraints,
-          collection,
-          budget,
-          roomFinishes,
-        }),
-      });
-
-      if (!res.ok) throw new Error("Eroare la creare comandă");
-
-      const data = await res.json();
-      setCheckoutUrl(data.checkoutUrl);
-    } catch (e: unknown) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : "A apărut o eroare. Vă rugăm încercați din nou."
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  if (checkoutUrl) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6">
-        <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center">
-          ✓
-        </div>
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900 mb-2">
-            Bucătăria ta e gata!
-          </h1>
-          <p className="text-sm text-gray-400 max-w-xs mx-auto">
-            Am creat coșul de cumpărături. Continuă către checkout pentru a finaliza comanda.
-          </p>
-        </div>
-
-        <div className="w-full border border-gray-100 rounded-xl p-4 space-y-2 text-left">
-          <SummaryRow label="Produse" value={`${cabinets.length} buc`} />
-          <SummaryRow label="Culoare" value={colorway.name} />
-          <SummaryRow
-            label="Total estimat"
-            value={`${totalPrice.toLocaleString("ro-RO")} RON`}
-            border
-          />
-        </div>
-
-        <OrderTrackingPreview />
-
-        <a
-          href={checkoutUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="w-full py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold text-center block"
-        >
-          Finalizează comanda →
-        </a>
-
-        <button
-          onClick={() => setCheckoutUrl(null)}
-          className="text-xs text-gray-400 underline underline-offset-2"
-        >
-          Înapoi la configurator
-        </button>
-      </div>
-    );
-  }
+  const estimateRange = kitchenEstimateRange(totalPrice);
 
   return (
     <div className="space-y-8 pb-8">
       <header>
         <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">Pas 11 din 11</p>
-        <h1 className="text-2xl font-semibold text-gray-900">Configuratia ta este gata. Ce urmeaza?</h1>
-        <p className="text-sm text-gray-400 mt-1">
-          Am salvat configuratia ta si am pregatit un rezumat al bucatariei. Urmatorul pas este o verificare tehnica rapida cu un specialist ASAB pentru a confirma dimensiunile, pozitionarea instalatiilor si compatibilitatea mobilierului cu spatiul tau.
-        </p>
-        <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
-          <p className="text-base font-extrabold text-emerald-900">Bucatarie gata asamblata</p>
-          <p className="mt-1 text-sm font-semibold leading-relaxed text-emerald-900">
-            Bucataria ta este pregatita cu corpuri deja asamblate, livrate ca module solide. Asta inseamna montaj mai rapid si mai putina munca in locuinta.
-          </p>
-        </div>
+        <h1 className="text-2xl font-semibold text-gray-900">Configuratia ta este gata. Afla pretul final</h1>
       </header>
 
       <section className="border border-gray-100 bg-gray-50 rounded-2xl p-4 space-y-4">
@@ -150,14 +51,11 @@ export default function StepCart() {
           <Metric label="Module" value={`${cabinets.length} corpuri`} />
           <Metric label="Buget" value={budgetLabel(budget.range)} />
           <Metric label="Culoare" value={colorway.name} />
-          <Metric label="Blat" value={worktopLabel(colorway.worktop)} />
-          <Metric label="Manere" value={handleLabel(colorway.handle)} />
-          <Metric label="Electrocasnice" value={applianceCount(appliances)} />
         </div>
         <div className="pt-4 border-t border-gray-200 flex justify-between gap-4 items-end">
           <div>
-            <p className="text-xs text-gray-400">Estimare preț, TVA inclus</p>
-            <p className="text-2xl font-semibold text-gray-900">{totalPrice.toLocaleString("ro-RO")} RON</p>
+            <p className="text-xs text-gray-400">Estimare bucatarie</p>
+            <p className="text-2xl font-semibold text-gray-900">{estimateRange}</p>
           </div>
           <div className="flex gap-1">
             <div className="w-8 h-14 rounded-l-lg border border-gray-200" style={{ background: colorway.doorHex }} />
@@ -166,11 +64,16 @@ export default function StepCart() {
         </div>
       </section>
 
+      <section className="rounded-2xl border-1 border-[#2f2a21] bg-[#fbf6ee] p-4 space-y-2 shadow-sm">
+        <p className="text-xs font-bold uppercase tracking-wider text-[#6f4f24]">Vine gata asamblata</p>
+        <h2 className="text-lg font-semibold text-gray-900">Corpurile ajung deja montate.</h2>
+        <p className="text-sm leading-relaxed text-gray-500">
+          Bucataria este livrata in module solide, deja asamblate. Echipa trebuie doar sa le puna pe pozitie, sa le fixeze pe perete si sa ajusteze detaliile finale.
+        </p>
+      </section>
+
       <section className="space-y-3">
-        <h2 className="text-xl font-bold text-gray-900 tracking-tight">
-          Modifica proiectul cu un Designer telefonic 100% Gratuit (Proiect 3D inclus)
-        </h2>
-        <TechnicianBooking
+        <DesignerContact
           config={{
             cabinets,
             colorway,
@@ -186,120 +89,15 @@ export default function StepCart() {
         />
       </section>
 
-      <SampleBoxCard />
-
-      <AssembledKitchenVideo />
-
-      <section className="space-y-3">
-        <SectionTitle title="Ce include experiența ASAB" />
-        <div className="grid grid-cols-2 gap-3">
-          <TrustCard
-            icon="▦"
-            title="Bucatarie gata asamblata"
-            text="Module solide, care trebuie doar puse pe pozitie."
-          />
-          <TrustCard
-            icon="▣"
-            title="Livrare urmărită"
-            text="Status clar: confirmare, producție, pregătire și livrare."
-          />
-          <TrustCard
-            icon="▶"
-            title="Video de montaj"
-            text="Fiecare produs are video dedicat, disponibil pe telefon."
-          />
-          <TrustCard
-            icon="☎"
-            title="Suport zilnic"
-            text="Asistență telefon / WhatsApp pentru instrucțiuni și piese."
-          />
-        </div>
-      </section>
-
-      <section className="border border-gray-100 rounded-2xl p-4 space-y-3">
-        <SectionTitle title="Directie design & camera" />
-        <SummaryRow label="Colectie" value={collectionLabel(collection)} />
-        <SummaryRow label="Buget orientativ" value={budgetLabel(budget.range)} />
-        <SummaryRow label="Prioritate" value={budgetPriorityLabel(budget.priority)} />
-        <SummaryRow label="Pereti" value={wallColorLabel(roomFinishes.wallColor)} />
-        <SummaryRow label="Pardoseala" value={floorTextureLabel(roomFinishes.floorTexture)} />
-        <SummaryRow label="Faianta / backsplash" value={backsplashLabel(roomFinishes.backsplashTexture)} />
-      </section>
-
-      <section className="border border-gray-100 rounded-2xl p-4 space-y-3">
-        <SectionTitle title="Dimensiuni bucatarie" />
-        <SummaryRow label="Perete principal" value={`${dimensions.wallA} cm`} />
-        {layout === "l-shape" && <SummaryRow label="Perete secundar" value={`${dimensions.wallB ?? 0} cm`} />}
-        {hasIsland && (
-          <>
-            <SummaryRow label="Insula" value={`${dimensions.islandWidth ?? 180} x ${dimensions.islandDepth ?? 90} cm`} />
-            <SummaryRow label="Distanta perete" value={`${dimensions.islandDistance ?? 100} cm`} />
-            <SummaryRow label="Pozitie insula" value={positionLabel(dimensions.islandPosition)} />
-          </>
-        )}
-      </section>
-
-      <section className="border border-gray-100 rounded-2xl p-4 space-y-3">
-        <SectionTitle title="Electrocasnice selectate" />
-        <SummaryRow label="Chiuveta" value={appliances.hasSink ? `${appliances.sinkSize} cm` : "Fara"} />
-        <SummaryRow label="Plita" value={appliances.hasHob ? `${appliances.hobSize} cm` : "Fara"} />
-        <SummaryRow label="Cuptor" value={ovenLabel(appliances.hasOven)} />
-        {appliances.hasOven === "tall-column" && (
-          <SummaryRow label="Microunde incorporat" value={appliances.hasIntegratedMicrowave ? "Da" : "Nu"} />
-        )}
-        <SummaryRow label="Masina vase" value={appliances.hasDishwasher ? `${appliances.dishwasherSize} cm` : "Fara"} />
-        <SummaryRow label="Hota" value={appliances.hasHood ? "Da" : "Nu"} />
-      </section>
-
-      <section className="border border-gray-100 rounded-2xl p-4 space-y-3">
-        <SectionTitle title="Camera & puncte tehnice" />
-        <SummaryRow label="Ferestre / usi" value={`${constraints.openings?.length ?? 0}`} />
-        <SummaryRow label="Gheuri / obstacole" value={`${constraints.obstructions?.length ?? 0}`} />
-        <SummaryRow label="Puncte tehnice" value={`${constraints.servicePoints?.length ?? 0}`} />
-        <SummaryRow label="Centrala termica" value={constraints.boiler ? "Da" : "Nu"} />
-      </section>
-
-      <section className="border border-gray-100 rounded-2xl p-4 space-y-3">
-        <SectionTitle title="Lista estimata de corpuri" />
-        <div className="divide-y divide-gray-100">
-          {cabinets.slice(0, 8).map((cab) => (
-            <div key={`${cab.sku}-${cab.wall}-${cab.xPos}`} className="py-2 flex justify-between gap-3 text-xs">
-              <span className="text-gray-600">{cab.label ?? cab.sku}</span>
-              <strong className="text-gray-900 text-right">{cab.width} cm · perete {cab.wall}</strong>
-            </div>
-          ))}
-          {cabinets.length > 8 && <div className="py-2 text-xs text-gray-400">+ inca {cabinets.length - 8} corpuri in PDF</div>}
-        </div>
-      </section>
-
-      <section className="space-y-3">
-        <SectionTitle title="Informații importante" />
-        <div className="border border-gray-100 rounded-2xl p-4 space-y-4">
-          <InfoStep number="1" title="Livrare" text="Primești estimare și actualizări pe etape până la livrare." />
-          <InfoStep number="2" title="Montaj" text="Corpurile sunt livrate deja asamblate; ai video si suport zilnic pentru pasii de montaj." />
-          <InfoStep number="3" title="Retur" text="Produsele standard au drepturi de retur; produsele personalizate trebuie explicate separat." />
-          <InfoStep number="4" title="Garanție" text="Garanție legală, procedură de reclamații și condiții clare pentru montaj incorect." />
-        </div>
-      </section>
-
       {hasIsland && (
         <div className="border border-amber-100 bg-amber-50 text-amber-800 rounded-xl px-4 py-3 text-sm">
-          Configuratiile cu insula necesita verificare tehnica pentru pozitionare exacta, distante de circulatie si instalatii.
+          Configuratiile cu insula necesita verificare impreuna cu un Designer ASAB pentru pozitionare exacta, distante de circulatie si instalatii.
         </div>
       )}
 
-      <OrderTrackingPreview />
-
-      {error && <div className="border border-red-200 bg-red-50 text-red-600 rounded-xl px-4 py-3 text-sm">{error}</div>}
-
       <section className="space-y-3 pb-8">
-        <button
-          onClick={handleSubmit}
-          disabled={submitting}
-          className="w-full py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold disabled:opacity-40 transition-all"
-        >
-          {submitting ? "Se creează comanda…" : "Comandă"}
-        </button>
+        <ContactInfo />
+        <SampleBoxCard />
         <button onClick={() => setStep("viewer")} className="w-full py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600">
           ← Înapoi la previzualizare
         </button>
@@ -310,80 +108,7 @@ export default function StepCart() {
   );
 }
 
-function SampleBoxCard() {
-  const sampleUrl = "https://asab-design.ro/products/cutie-mostre-fronturi-blaturi-de-bucatarie?srsltid=AfmBOorlQalJSjAVmtBf-y5U0712dfesF9cPfEL5X47mcDXae-NL623s";
-  const sampleImage = "https://asab-design.ro/cdn/shop/files/ChatGPTImageSep23_2025_01_08_56PM.png?v=1758622270&width=1946";
-
-  return (
-    <section className="rounded-2xl border border-[#e8dfd1] bg-[#f8f3eb] p-4 space-y-4">
-      <div className="grid grid-cols-[104px_1fr] gap-4 items-start">
-        <a
-          href={sampleUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block aspect-square rounded-2xl border border-black/10 bg-white bg-cover bg-center bg-no-repeat shadow-sm"
-          style={{ backgroundImage: "url('" + sampleImage + "')" }}
-          aria-label="Comanda cutia de mostre"
-        />
-
-        <div className="min-w-0">
-          <span className="inline-flex rounded-full border border-black/10 bg-white px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-gray-700">
-            Recomandat inainte de comanda
-          </span>
-          <h2 className="mt-2 text-base font-bold leading-tight text-gray-900">
-            Comanda cutia de mostre si alege materialele in realitate.
-          </h2>
-          <p className="mt-1 text-xs leading-relaxed text-gray-600">
-            Verifici fronturile si blaturile in lumina casei tale, apoi primesti voucher de 100 RON pentru bucataria ASAB.
-          </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 rounded-2xl border border-black/10 bg-white p-3">
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Pret cutie mostre</p>
-          <p className="mt-1 text-2xl font-black tracking-tight text-gray-900">35 RON</p>
-        </div>
-        <div className="text-right">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Voucher bucatarie</p>
-          <p className="mt-1 text-2xl font-black tracking-tight text-gray-900">100 RON</p>
-        </div>
-      </div>
-
-      <ul className="grid gap-2 text-xs leading-relaxed text-gray-700">
-        <SampleBenefit text="Vezi textura si nuanta fronturilor inainte de alegerea finala." />
-        <SampleBenefit text="Compari blaturile cu lumina reala din locuinta ta." />
-        <SampleBenefit text="Ideal dupa ce ai generat proiectul in configurator." />
-      </ul>
-
-      <a
-        href={sampleUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center justify-center rounded-xl border border-gray-900 bg-white px-4 py-3 text-sm font-semibold text-gray-900 transition-all hover:bg-gray-900 hover:text-white"
-      >
-        Comanda cutia de mostre
-      </a>
-    </section>
-  );
-}
-
-function SampleBenefit({ text }: { text: string }) {
-  return (
-    <li className="grid grid-cols-[20px_1fr] gap-2">
-      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gray-900 text-[10px] font-bold text-white">✓</span>
-      <span>{text}</span>
-    </li>
-  );
-}
-
-function TechnicianBooking({ config }: { config: unknown }) {
-  const generatedDays = useMemo(() => getNextBusinessDays(5), []);
-  const slots = ["10:00", "12:30", "14:00", "15:30", "17:00", "18:30"];
-
-  const [selectedDay, setSelectedDay] = useState(generatedDays[0].value);
-  const [selectedSlot, setSelectedSlot] = useState("12:30");
-
+function DesignerContact({ config }: { config: unknown }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -394,10 +119,9 @@ function TechnicianBooking({ config }: { config: unknown }) {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const selectedDayLabel = generatedDays.find((day) => day.value === selectedDay)?.label ?? selectedDay;
   const isValid = Boolean(name && email && phone);
 
-  const handleBooking = async () => {
+  const handleSubmit = async () => {
     if (!isValid) return;
     setSubmitting(true);
     setError(null);
@@ -414,78 +138,34 @@ function TechnicianBooking({ config }: { config: unknown }) {
           phone,
           city,
           notes,
-          selectedDay,
-          selectedDayLabel,
-          selectedSlot,
         }),
       });
 
       const data = await res.json().catch(() => undefined);
-      if (!res.ok) throw new Error(data?.error ?? "Nu am putut trimite cererea de verificare.");
+      if (!res.ok) throw new Error(data?.error ?? "Nu am putut trimite cererea catre designer.");
       setSuccess(true);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "A apărut o eroare. Vă rugăm încercați din nou.");
+      setError(e instanceof Error ? e.message : "A aparut o eroare. Va rugam incercati din nou.");
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <section id="technician-booking" className="border border-gray-100 rounded-2xl p-4 space-y-4 bg-white">
-      <div>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Alege o zi avantajoasă</p>
-        <p className="text-sm text-gray-400 mt-1">
-          Alege un interval, lasă datele tale, iar un tehnician ASAB te va contacta pentru consultanta proiectului.
+    <section id="technician-booking" className="border-2 border-gray-900 rounded-2xl p-4 space-y-4 bg-white shadow-sm">
+      <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+        <p className="text-xs font-bold text-gray-900 uppercase tracking-wider">Vorbeste cu un Designer ASAB</p>
+        <h3 className="mt-1 text-xl font-semibold text-gray-900">Afla pretul real al bucatariei tale</h3>
+        <p className="text-sm text-gray-500 mt-1">
+          Lasa-ne numarul de telefon si emailul, iar un Designer ASAB te contacteaza cu pretul bucatariei tale.
+        </p>
+        <p className="text-sm text-gray-500 mt-2">
+          Daca previzualizarea 3D nu este exact ce iti doreai, nicio problema: cream impreuna bucataria pana la ultimul detaliu.
         </p>
       </div>
 
-      <div className="space-y-2">
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {generatedDays.map((day) => (
-            <button
-              key={day.value}
-              type="button"
-              onClick={() => {
-                setSelectedDay(day.value);
-                setSuccess(false);
-              }}
-              className={`shrink-0 rounded-full border px-3 py-2 text-xs font-semibold transition-all ${
-                selectedDay === day.value
-                  ? "bg-gray-900 text-white border-gray-900"
-                  : "bg-white text-gray-900 border-gray-200 hover:border-gray-400"
-              }`}
-            >
-              {day.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Alege ora</p>
-        <div className="grid grid-cols-3 gap-2">
-          {slots.map((slot) => (
-            <button
-              key={slot}
-              type="button"
-              onClick={() => {
-                setSelectedSlot(slot);
-                setSuccess(false);
-              }}
-              className={`rounded-xl border py-3 text-xs font-semibold transition-all ${
-                selectedSlot === slot
-                  ? "bg-gray-900 text-white border-gray-900"
-                  : "bg-white text-gray-900 border-gray-200 hover:border-gray-400"
-              }`}
-            >
-              {slot}
-            </button>
-          ))}
-        </div>
-      </div>
-
       <div className="space-y-3 pt-2">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Date contact pentru confirmare</p>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Date de contact</p>
         <div className="grid grid-cols-2 gap-3">
           <input
             className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 focus:outline-none focus:border-gray-900 transition-all"
@@ -510,14 +190,14 @@ function TechnicianBooking({ config }: { config: unknown }) {
         />
         <input
           className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 focus:outline-none focus:border-gray-900 transition-all"
-          placeholder="Oraș (opțional)"
+          placeholder="Oras (optional)"
           value={city}
           onChange={(e) => setCity(e.target.value)}
         />
         <textarea
           className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 focus:outline-none focus:border-gray-900 transition-all resize-none"
           rows={3}
-          placeholder="Mentiuni (Ex: exista tevi aparente sau centrala pe perete)"
+          placeholder="Mentiuni (Ex: ce vrei sa schimbi in proiect sau in previzualizarea 3D)"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
         />
@@ -525,16 +205,16 @@ function TechnicianBooking({ config }: { config: unknown }) {
 
       <button
         type="button"
-        onClick={handleBooking}
+        onClick={handleSubmit}
         disabled={!isValid || submitting}
         className="w-full py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold disabled:opacity-40 transition-all"
       >
-        {submitting ? "Se trimite cererea…" : "Trimite catre Designer"}
+        {submitting ? "Se trimite cererea..." : "Afla pretul"}
       </button>
 
       {success && (
         <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-          Cererea a fost trimisă. Un designer ASAB DESIGN va analiza proiectul si va reveni la ora selectata pentru consultanta dvs.
+          Cererea a fost trimisa. Un Designer ASAB va analiza proiectul si te va contacta cu pretul final.
         </div>
       )}
 
@@ -547,50 +227,137 @@ function TechnicianBooking({ config }: { config: unknown }) {
   );
 }
 
-function OrderTrackingPreview() {
-  const steps = [
-    { label: "Confirmată", date: "", state: "done" },
-    { label: "Producție", date: "", state: "current" },
-    { label: "Pregătită", date: "", state: "upcoming" },
-    { label: "Livrată", date: "", state: "upcoming" },
-  ];
-
+function ContactInfo() {
   return (
-    <section className="border border-gray-100 rounded-2xl p-4 space-y-4 bg-white text-left">
-      <div className="flex justify-between gap-4 items-start">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">Track & Trace comandă</h2>
-          <p className="text-xs text-gray-400 mt-1">Exemplu: #ASB-BUC-20481</p>
-        </div>
-        <span className="shrink-0 rounded-full border border-green-200 bg-green-50 text-green-700 px-3 py-1.5 text-xs font-semibold">
-          Livrare transparentă
-        </span>
+    <section className="overflow-hidden rounded-2xl border border-[#e7dac8] bg-[#fbf6ee] shadow-sm">
+      <div className="border-b border-[#eadfce] bg-[#f7efe2] px-4 py-3">
+        <p className="text-xs font-semibold uppercase tracking-wider text-[#80613c]">Contact direct ASAB</p>
+        <h2 className="mt-1 text-base font-semibold text-gray-900">Showroom ASAB Design Iasi</h2>
+        <p className="mt-1 text-xs leading-relaxed text-gray-500">
+          Discuta direct cu echipa din showroom sau gaseste-ne pe Google Maps.
+        </p>
       </div>
-
-      <div className="relative pt-2">
-        <div className="absolute left-4 right-4 top-[17px] h-[3px] bg-gray-200 rounded-full" />
-        <div className="absolute left-4 top-[17px] h-[3px] w-[56%] bg-gray-900 rounded-full" />
-
-        <div className="relative z-10 grid grid-cols-4 gap-1">
-          {steps.map((step) => (
-            <div key={step.label} className="text-center">
-              <div
-                className={`w-4 h-4 mx-auto rounded-full bg-white border-[3px] ${
-                  step.state === "upcoming" ? "border-gray-300" : "border-gray-900"
-                } ${step.state === "current" ? "ring-4 ring-gray-100" : ""}`}
-              />
-              <p className="text-[10px] font-semibold text-gray-900 mt-2 leading-tight">{step.label}</p>
-              <p className="text-[10px] text-gray-400 mt-0.5">{step.date}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="border-t border-gray-100 divide-y divide-gray-100">
-        <TrackingRow label="Estimare livrare" value="5-7 zile lucratoare" />
-        <TrackingRow label="Documente incluse" value="PDF · Factură · Video montaj" />
+      <div className="grid gap-2 p-3 text-sm">
+        <a className="grid grid-cols-[42px_1fr] items-center gap-3 rounded-xl border border-[#eadfce] bg-white/80 px-3 py-3 transition hover:border-[#cbb89c]" href="tel:0753494810">
+          <IconBubble>
+            <PhoneIcon />
+          </IconBubble>
+          <span>
+            <span className="block text-xs font-semibold uppercase tracking-wider text-gray-400">Showroom Iasi</span>
+            <span className="block font-semibold text-gray-900">0753 494 810</span>
+          </span>
+        </a>
+        <a className="grid grid-cols-[42px_1fr] items-center gap-3 rounded-xl border border-[#eadfce] bg-white/80 px-3 py-3 transition hover:border-[#cbb89c]" href="mailto:office@asab-design.ro">
+          <IconBubble>
+            <MailIcon />
+          </IconBubble>
+          <span>
+            <span className="block text-xs font-semibold uppercase tracking-wider text-gray-400">Email</span>
+            <span className="block font-semibold text-gray-900">office@asab-design.ro</span>
+          </span>
+        </a>
+        <a
+          className="grid grid-cols-[42px_1fr] items-center gap-3 rounded-xl border border-[#eadfce] bg-white/80 px-3 py-3 transition hover:border-[#cbb89c]"
+          href="https://www.google.com/maps/search/?api=1&query=ASAB%20DESIGN%20SHOWROOM"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <IconBubble>
+            <MapPinIcon />
+          </IconBubble>
+          <span>
+            <span className="block text-xs font-semibold uppercase tracking-wider text-gray-400">Locatie</span>
+            <span className="block font-semibold text-gray-900">ASAB DESIGN SHOWROOM pe Google Maps</span>
+          </span>
+        </a>
       </div>
     </section>
+  );
+}
+
+function SampleBoxCard() {
+  const sampleUrl = "https://asab-design.ro/products/cutie-mostre-fronturi-blaturi-de-bucatarie";
+  const sampleImage = "https://asab-design.ro/cdn/shop/files/ChatGPTImageSep23_2025_01_08_56PM.png?v=1758622270&width=1946";
+
+  return (
+    <section className="overflow-hidden rounded-2xl border border-[#e7dac8] bg-[#fbf6ee] shadow-sm">
+      <div className="grid grid-cols-[92px_1fr] gap-3 p-3">
+        <a
+          href={sampleUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block aspect-square rounded-xl border border-[#eadfce] bg-white bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: `url('${sampleImage}')` }}
+          aria-label="Comanda cutia de mostre"
+        />
+        <div className="min-w-0 py-1">
+          <div className="flex items-center gap-2">
+            <IconBubble compact>
+              <PackageIcon />
+            </IconBubble>
+            <p className="text-xs font-bold uppercase tracking-wider text-[#80613c]">Mostre materiale</p>
+          </div>
+          <h2 className="mt-2 text-base font-semibold leading-tight text-gray-900">
+            Comanda cutia de mostre si vezi finisajele acasa.
+          </h2>
+          <p className="mt-1 text-xs leading-relaxed text-gray-500">
+            Verifici fronturile si blaturile in lumina reala, apoi alegi materialele impreuna cu designerul.
+          </p>
+        </div>
+      </div>
+      <a
+        href={sampleUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block border-t border-[#eadfce] bg-white/70 px-4 py-3 text-center text-sm font-semibold text-gray-900 transition hover:bg-white"
+      >
+        Vezi cutia de mostre
+      </a>
+    </section>
+  );
+}
+
+function IconBubble({ children, compact = false }: { children: ReactNode; compact?: boolean }) {
+  return (
+    <span className={`flex shrink-0 items-center justify-center rounded-full bg-gray-900 text-white ${compact ? "h-8 w-8" : "h-10 w-10"}`}>
+      {children}
+    </span>
+  );
+}
+
+function PhoneIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.11 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.91.33 1.79.62 2.64a2 2 0 0 1-.45 2.11L8 9.75a16 16 0 0 0 6.25 6.25l1.28-1.28a2 2 0 0 1 2.11-.45c.85.29 1.73.5 2.64.62A2 2 0 0 1 22 16.92Z" />
+    </svg>
+  );
+}
+
+function MailIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m3 7 9 6 9-6" />
+    </svg>
+  );
+}
+
+function MapPinIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" />
+      <circle cx="12" cy="10" r="3" />
+    </svg>
+  );
+}
+
+function PackageIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="m21 8-9-5-9 5 9 5 9-5Z" />
+      <path d="M3 8v8l9 5 9-5V8" />
+      <path d="M12 13v8" />
+    </svg>
   );
 }
 
@@ -629,27 +396,6 @@ function LegalInfo() {
   );
 }
 
-function getNextBusinessDays(count: number) {
-  const result: { label: string; value: string }[] = [];
-  const date = new Date();
-
-  while (result.length < count) {
-    date.setDate(date.getDate() + 1);
-    const dayOfWeek = date.getDay();
-    if (dayOfWeek === 0 || dayOfWeek === 6) continue;
-
-    result.push({
-      label: date.toLocaleDateString("ro-RO", {
-        weekday: "long",
-        day: "numeric",
-        month: "short",
-      }),
-      value: date.toISOString(),
-    });
-  }
-  return result;
-}
-
 function SectionTitle({ title }: { title: string }) {
   return <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{title}</p>;
 }
@@ -663,44 +409,11 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function SummaryRow({ label, value, border }: { label: string; value: string; border?: boolean }) {
+function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className={`flex justify-between gap-4 text-sm ${border ? "pt-2 border-t border-gray-100" : ""}`}>
+    <div className="flex justify-between gap-4 text-sm">
       <span className="text-gray-400">{label}</span>
       <span className="font-semibold text-gray-900 text-right">{value}</span>
-    </div>
-  );
-}
-
-function TrackingRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between gap-4 py-3 text-xs text-left">
-      <span className="text-gray-400">{label}</span>
-      <strong className="text-gray-900 text-right">{value}</strong>
-    </div>
-  );
-}
-
-function TrustCard({ icon, title, text }: { icon: string; title: string; text: string }) {
-  return (
-    <div className="border border-gray-100 rounded-xl p-3 min-h-[130px] bg-white text-left">
-      <div className="w-8 h-8 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center text-sm mb-3">
-        {icon}
-      </div>
-      <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
-      <p className="text-xs text-gray-400 mt-1 leading-relaxed">{text}</p>
-    </div>
-  );
-}
-
-function InfoStep({ number, title, text }: { number: string; title: string; text: string }) {
-  return (
-    <div className="grid grid-cols-[32px_1fr] gap-3 text-left">
-      <div className="w-8 h-8 rounded-full border border-gray-900 flex items-center justify-center text-xs font-semibold">{number}</div>
-      <div>
-        <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
-        <p className="text-xs text-gray-400 mt-1 leading-relaxed">{text}</p>
-      </div>
     </div>
   );
 }
@@ -715,39 +428,10 @@ function layoutLabel(layout: LayoutType): string {
   return labels[layout];
 }
 
-function worktopLabel(worktop: string): string {
-  const labels: Record<string, string> = {
-    stejar: "Stejar",
-    "gri-piatra": "Gri piatra",
-    darkwood: "Darkwood",
-    "white-stone": "White stone",
-  };
-  return labels[worktop] ?? "Stejar";
-}
-
-function handleLabel(handle: string): string {
-  return handle === "inox" ? "Inox" : "Negru mat";
-}
-
-function ovenLabel(value: OvenPlacement): string {
-  const labels: Record<OvenPlacement, string> = {
-    "under-hob": "Sub plita",
-    "tall-column": "In coloana",
-    none: "Fara",
-  };
-  return labels[value];
-}
-
-function applianceCount(appliances: Appliances): string {
-  const count = [
-    appliances.hasSink,
-    appliances.hasHob,
-    appliances.hasDishwasher,
-    appliances.hasHood,
-    appliances.hasOven !== "none",
-    appliances.hasIntegratedMicrowave,
-  ].filter(Boolean).length;
-  return `${count} selectate`;
+function kitchenEstimateRange(totalPrice: number): string {
+  const lower = totalPrice;
+  const upper = Math.round(totalPrice * 1.2);
+  return `${lower.toLocaleString("ro-RO")} - ${upper.toLocaleString("ro-RO")} RON`;
 }
 
 function positionLabel(value?: "left" | "center" | "right"): string {

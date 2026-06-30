@@ -8,8 +8,6 @@ interface TechnicianBookingPayload {
   phone?: string;
   city?: string;
   notes?: string;
-  selectedDayLabel?: string;
-  selectedSlot?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -20,11 +18,9 @@ export async function POST(req: NextRequest) {
     const phone = clean(body.phone);
     const city = clean(body.city);
     const notes = clean(body.notes);
-    const selectedDayLabel = clean(body.selectedDayLabel);
-    const selectedSlot = clean(body.selectedSlot);
 
-    if (!name || !email || !phone || !selectedDayLabel || !selectedSlot) {
-      return NextResponse.json({ error: "Completeaza numele, emailul, telefonul, ziua si ora." }, { status: 400 });
+    if (!name || !email || !phone) {
+      return NextResponse.json({ error: "Completeaza numele, emailul si telefonul." }, { status: 400 });
     }
 
     const apiKey = process.env.RESEND_API_KEY;
@@ -40,14 +36,13 @@ export async function POST(req: NextRequest) {
       from: "ASAB Configurator <noreply@configurator.asab-design.ro>",
       to: ownerEmail,
       replyTo: email,
-      subject: `Verificare proiect: ${name} - ${selectedDayLabel}, ${selectedSlot}`,
+      subject: `Cerere pret bucatarie: ${name}`,
       html: `<div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;color:#111">
-        <h2>Cerere noua de verificare cu designer</h2>
+        <h2>Cerere noua pentru pret bucatarie</h2>
         <p><strong>Client:</strong> ${escapeHtml(name)}</p>
         <p><strong>Email:</strong> ${escapeHtml(email)}</p>
         <p><strong>Telefon:</strong> ${escapeHtml(phone)}</p>
         <p><strong>Oras:</strong> ${escapeHtml(city || "-")}</p>
-        <p><strong>Programare dorita:</strong> ${escapeHtml(selectedDayLabel)}, ${escapeHtml(selectedSlot)}</p>
         <p><strong>Mentiuni:</strong><br>${escapeHtml(notes || "-").replace(/\n/g, "<br>")}</p>
         <hr style="border:none;border-top:1px solid #ddd;margin:24px 0">
         <h3>Rezumat configuratie</h3>
@@ -63,12 +58,11 @@ export async function POST(req: NextRequest) {
     const { error: customerError } = await resend.emails.send({
       from: "ASAB Design <noreply@configurator.asab-design.ro>",
       to: email,
-      subject: "Am primit cererea ta de verificare a proiectului",
+      subject: "Am primit cererea ta pentru pretul bucatariei",
       html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#111">
         <h2>Buna ziua, ${escapeHtml(name)}!</h2>
-        <p>Am primit cererea ta pentru verificarea proiectului de bucatarie.</p>
-        <p><strong>Interval ales:</strong> ${escapeHtml(selectedDayLabel)}, ${escapeHtml(selectedSlot)}</p>
-        <p>Un designer ASAB DESIGN va analiza proiectul si va reveni la ora selectata pentru consultanta dvs.</p>
+        <p>Am primit cererea ta pentru pretul bucatariei configurate.</p>
+        <p>Un Designer ASAB va analiza proiectul si te va contacta pentru pretul final si modificarile dorite.</p>
         <p style="margin-top:24px;color:#666;font-size:13px">ASAB Design · +40 755 837 264 · office@asab-design.ro</p>
       </div>`,
     });
@@ -77,7 +71,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Technician booking failed:", error);
-    return NextResponse.json({ error: "Nu am putut procesa cererea de verificare." }, { status: 500 });
+    return NextResponse.json({ error: "Nu am putut procesa cererea pentru pret." }, { status: 500 });
   }
 }
 
