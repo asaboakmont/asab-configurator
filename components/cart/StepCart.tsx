@@ -3,13 +3,11 @@ import { useState, type ReactNode } from "react";
 import { useConfigStore } from "@/store/configuratorStore";
 import {
   BACKSPLASH_OPTIONS,
-  BUDGET_OPTIONS,
   DESIGN_COLLECTIONS,
   FLOOR_TEXTURE_OPTIONS,
   WALL_COLOR_OPTIONS,
 } from "@/data/designCollections";
 import type {
-  BudgetPreference,
   DesignCollectionId,
   LayoutType,
   RoomFinishes,
@@ -49,7 +47,6 @@ export default function StepCart() {
           <Metric label="Tip" value={layoutLabel(layout)} />
           <Metric label="Colectie" value={collectionLabel(collection)} />
           <Metric label="Module" value={`${cabinets.length} corpuri`} />
-          <Metric label="Buget" value={budgetLabel(budget.range)} />
           <Metric label="Culoare" value={colorway.name} />
         </div>
         <div className="pt-4 border-t border-gray-200 flex justify-between gap-4 items-end">
@@ -441,19 +438,6 @@ function positionLabel(value?: "left" | "center" | "right"): string {
 
 function collectionLabel(collection: DesignCollectionId): string {
   return DESIGN_COLLECTIONS.find((item) => item.id === collection)?.name ?? "Japandi";
-}
-
-function budgetLabel(range: BudgetPreference["range"]): string {
-  return BUDGET_OPTIONS.find((item) => item.id === range)?.label ?? "Nu stiu inca";
-}
-
-function budgetPriorityLabel(priority: BudgetPreference["priority"]): string {
-  const labels: Record<BudgetPreference["priority"], string> = {
-    price: "Pret eficient",
-    balanced: "Echilibru",
-    premium: "Finisaje premium",
-  };
-  return labels[priority];
 }
 
 function wallColorLabel(color: string): string {
