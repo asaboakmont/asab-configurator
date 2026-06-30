@@ -98,7 +98,7 @@ export default function StepCart() {
       <section className="space-y-3 pb-8">
         <ContactInfo />
         <SampleBoxCard />
-        <button onClick={() => setStep("viewer")} className="w-full py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600">
+        <button onClick={() => setStep("viewer")} className="w-full py-3 rounded-xl border border-gray-200 bg-gray-900 text-sm font-semibold text-white">
           ← Înapoi la previzualizare
         </button>
       </section>
@@ -280,7 +280,7 @@ function SampleBoxCard() {
   const sampleImage = "https://asab-design.ro/cdn/shop/files/ChatGPTImageSep23_2025_01_08_56PM.png?v=1758622270&width=1946";
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-[#e7dac8] bg-[#fbf6ee] shadow-sm">
+    <section className="overflow-hidden rounded-2xl border border-[#e7dac8] bg-white shadow-sm">
       <div className="grid grid-cols-[92px_1fr] gap-3 p-3">
         <a
           href={sampleUrl}
