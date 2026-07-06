@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
+import { nanoid } from "nanoid";
 
 interface TechnicianBookingPayload {
   config?: unknown;
@@ -26,6 +27,33 @@ export async function POST(req: NextRequest) {
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ error: "Serviciul de email nu este configurat." }, { status: 500 });
+    }
+
+    const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
+    const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+    if (!redisUrl || !redisToken) {
+      return NextResponse.json({ error: "Serviciul de salvare configuratii nu este configurat." }, { status: 500 });
+    }
+
+    const { Redis } = await import("@upstash/redis");
+    const redis = new Redis({ url: redisUrl, token: redisToken });
+    const configId = nanoid(10);
+    const configUrl = `${getSiteUrl(req)}/?config=${encodeURIComponent(configId)}`;
+
+    try {
+      await redis.set(
+        `config:${configId}`,
+        JSON.stringify({
+          ...(isRecord(body.config) ? body.config : { value: body.config ?? null }),
+          _lead: { name, email, phone, city, notes },
+          _source: "designer-price-request",
+          _createdAt: new Date().toISOString(),
+        }),
+        { ex: 2592000 }
+      );
+    } catch (redisErr) {
+      console.error("Technician booking config save failed:", redisErr);
+      return NextResponse.json({ error: "Nu am putut salva configuratia pentru designer." }, { status: 500 });
     }
 
     const resend = new Resend(apiKey);
@@ -63,6 +91,15 @@ export async function POST(req: NextRequest) {
           <p style="margin:6px 0"><strong>Telefon:</strong> <a href="${hrefAttr(`tel:${phone}`)}" style="color:#111">${escapeHtml(phone)}</a></p>
           <p style="margin:6px 0"><strong>Oras:</strong> ${escapeHtml(city || "-")}</p>
           <p style="margin:12px 0 0"><strong>Mentiuni:</strong><br>${escapeHtml(notes || "-").replace(/\n/g, "<br>")}</p>
+        </div>
+
+        <div style="border:1px solid #e7dac8;background:#fbf6ee;border-radius:16px;padding:18px;margin-bottom:16px">
+          <h3 style="margin:0 0 8px">Configuratie client</h3>
+          <p style="margin:0 0 14px;color:#555">Deschide configuratia exacta trimisa de client in configuratorul 3D.</p>
+          <a href="${hrefAttr(configUrl)}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;border-radius:10px;padding:12px 18px;font-weight:800">
+            Vezi configuratia in 3D
+          </a>
+          <p style="margin:12px 0 0;color:#777;font-size:12px;word-break:break-all">${escapeHtml(configUrl)}</p>
         </div>
 
         <div style="border:1px solid #eee;border-radius:16px;padding:18px;margin-bottom:16px;background:#fafafa">
@@ -147,7 +184,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (customerError) console.warn("Technician booking confirmation email failed:", customerError);
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, configId, configUrl });
   } catch (error) {
     console.error("Technician booking failed:", error);
     return NextResponse.json({ error: "Nu am putut procesa cererea pentru pret." }, { status: 500 });
@@ -156,6 +193,21 @@ export async function POST(req: NextRequest) {
 
 function clean(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getSiteUrl(req: NextRequest): string {
+  const configuredUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL;
+  if (configuredUrl) return configuredUrl.replace(/\/$/, "");
+
+  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
+  const proto = req.headers.get("x-forwarded-proto") ?? "https";
+  if (host) return `${proto}://${host}`;
+
+  return "https://configurator.asab-design.ro";
 }
 
 function formatConfig(config: unknown): string {
