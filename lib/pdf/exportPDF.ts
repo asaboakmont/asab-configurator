@@ -228,25 +228,6 @@ export async function exportKitchenPDF(opts: PDFExportOptions) {
   doc.setTextColor(140, 106, 63);
   doc.text("Configuratie preliminara, necesita verificare tehnica inainte de productie.", margin, y + 2);
 
-  if (opts.cartUrl) {
-    y += 12;
-    if (y > 260) { doc.addPage(); y = 20; }
-    const btnW = pageW - margin * 2;
-    const btnH = 14;
-    doc.setFillColor(140, 106, 63);
-    doc.roundedRect(margin, y, btnW, btnH, 3, 3, "F");
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(255, 255, 255);
-    doc.text("CONTINUA SPRE COMANDA", pageW / 2, y + 9, { align: "center" });
-    doc.link(margin, y, btnW, btnH, { url: opts.cartUrl });
-    y += btnH + 4;
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(107, 101, 96);
-    doc.text(opts.cartUrl.substring(0, 80), pageW / 2, y, { align: "center" });
-  }
-
   const footerY = 285;
   const totalPages = (doc as any).internal.getNumberOfPages();
   for (let p = 1; p <= totalPages; p++) {
