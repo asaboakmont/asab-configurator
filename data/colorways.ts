@@ -16,7 +16,7 @@ export const COLORWAYS: Colorway[] = [
   { id: "burgundy-mat",     name: "Burgundy Mat",     finish: "mat",    doorHex: "#6F2A3C", carcassHex: CARCASS, worktopHex: PIATRA, handleHex: INOX,  worktop: "gri-piatra", handle: "inox"     },
   { id: "bej-mat",          name: "Bej Mat",          finish: "mat",    doorHex: "#D7C4A8", carcassHex: CARCASS, worktopHex: STEJAR, handleHex: NEGRU, worktop: "stejar",    handle: "negru-mat" },
   { id: "cacao-mat",        name: "Cacao Mat",        finish: "mat",    doorHex: "#6B5244", carcassHex: CARCASS, worktopHex: STEJAR, handleHex: INOX,  worktop: "stejar",    handle: "inox"      },
-  { id: "olive-mat",        name: "Verde Olive Mat",   finish: "mat",    doorHex: "#6B7B5E", carcassHex: CARCASS, worktopHex: STEJAR, handleHex: NEGRU, worktop: "stejar",    handle: "negru-mat" },
+  { id: "olive-mat",        name: "Verde Olive Mat",   finish: "mat",    doorHex: "#71745C", carcassHex: CARCASS, worktopHex: STEJAR, handleHex: NEGRU, worktop: "stejar",    handle: "negru-mat" },
   { id: "negru-mat",        name: "Negru Mat",         finish: "mat",    doorHex: "#1C1C1A", carcassHex: CARCASS, worktopHex: PIATRA, handleHex: INOX,  worktop: "gri-piatra", handle: "inox"     },
   { id: "albastru-mat",     name: "Albastru Mat",      finish: "mat",    doorHex: "#2C3E52", carcassHex: CARCASS, worktopHex: PIATRA, handleHex: INOX,  worktop: "gri-piatra", handle: "inox"     },
   // ── Gloss finishes ────────────────────────────────────────────────────────
@@ -24,7 +24,6 @@ export const COLORWAYS: Colorway[] = [
   { id: "alb-lucios",       name: "Alb Lucios",        finish: "lucios", doorHex: "#F8F7F5", carcassHex: CARCASS, worktopHex: STEJAR, handleHex: INOX,  worktop: "stejar",    handle: "inox"      },
   { id: "gri-deschis-lucios", name: "Gri Deschis Lucios", finish: "lucios", doorHex: "#C8C5BE", carcassHex: CARCASS, worktopHex: PIATRA, handleHex: INOX, worktop: "gri-piatra", handle: "inox"  },
   { id: "gri-inchis-lucios", name: "Gri Inchis Lucios",  finish: "lucios", doorHex: "#4A4845", carcassHex: CARCASS, worktopHex: PIATRA, handleHex: INOX, worktop: "gri-piatra", handle: "inox"  },
-  { id: "olive-lucios",     name: "Verde Olive Lucios", finish: "lucios", doorHex: "#6B7B5E", carcassHex: CARCASS, worktopHex: STEJAR, handleHex: NEGRU, worktop: "stejar",   handle: "negru-mat" },
   { id: "negru-lucios",     name: "Negru Lucios",       finish: "lucios", doorHex: "#1C1C1A", carcassHex: CARCASS, worktopHex: PIATRA, handleHex: INOX,  worktop: "gri-piatra", handle: "inox"   },
 ];
 
