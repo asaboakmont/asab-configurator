@@ -228,6 +228,7 @@ export async function exportKitchenPDF(opts: PDFExportOptions) {
   doc.setTextColor(140, 106, 63);
   doc.text("Configuratie preliminara, necesita verificare tehnica inainte de productie.", margin, y + 2);
 
+
   const footerY = 285;
   const totalPages = (doc as any).internal.getNumberOfPages();
   for (let p = 1; p <= totalPages; p++) {
