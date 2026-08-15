@@ -17,6 +17,9 @@ const KitchenScene = dynamic(() => import("@/components/viewer/KitchenScene"), {
 
 export default function PreviewPage() {
   const [ready, setReady] = useState(false);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const {
     cabinets,
     totalPrice,
@@ -32,9 +35,32 @@ export default function PreviewPage() {
     const store = useConfigStore.getState();
     const params = new URLSearchParams(window.location.search);
     loadPreviewFromParams(params, store);
-    store.generate();
-    setReady(true);
   }, []);
+
+  const unlockPreview = () => {
+    const customerName = name.trim() || "Client";
+    const customerEmail = email.trim();
+    const customerPhone = phone.trim();
+    if (!customerEmail || !customerPhone) return;
+
+    const store = useConfigStore.getState();
+    store.setContact({ name: customerName, email: customerEmail, phone: customerPhone });
+    store.generate();
+
+    const { collection, budget, roomFinishes, layout, dimensions, appliances, colorway, cabinets, totalPrice, constraints } = useConfigStore.getState();
+    fetch("/api/config/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        config: { collection, budget, roomFinishes, layout, dimensions, appliances, colorway, cabinets, totalPrice, constraints },
+        name: customerName,
+        email: customerEmail,
+        phone: customerPhone,
+      }),
+    }).catch(() => {});
+
+    setReady(true);
+  };
 
   return (
     <main className="relative h-screen w-screen overflow-hidden bg-gray-50">
@@ -52,14 +78,56 @@ export default function PreviewPage() {
         />
       )}
 
-      <div className="absolute right-4 top-4 z-10 rounded-2xl border border-gray-100 bg-white/90 px-4 py-3 shadow-lg backdrop-blur">
+      {!ready && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50 p-4">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              unlockPreview();
+            }}
+            className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-6 shadow-xl"
+          >
+            <div>
+              <h1 className="text-lg font-semibold text-gray-900">Vezi bucataria ta in 3D</h1>
+              <p className="mt-1 text-xs text-gray-400">Lasa emailul si telefonul pentru a vedea previzualizarea si a-ti salva configuratia.</p>
+            </div>
+            <input
+              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-gray-900 focus:outline-none"
+              placeholder="Numele tau (optional)"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+            />
+            <input
+              required
+              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-gray-900 focus:outline-none"
+              type="email"
+              placeholder="Email *"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+            <input
+              required
+              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-gray-900 focus:outline-none"
+              type="tel"
+              placeholder="Telefon *"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+            />
+            <button type="submit" className="w-full rounded-xl bg-gray-900 py-3 text-sm font-semibold text-white">
+              Vezi in 3D →
+            </button>
+          </form>
+        </div>
+      )}
+
+      {ready && <div className="absolute right-4 top-4 z-10 rounded-2xl border border-gray-100 bg-white/90 px-4 py-3 shadow-lg backdrop-blur">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">
           Total estimat
         </p>
         <p className="text-xl font-semibold text-gray-900">
           {totalPrice.toLocaleString("ro-RO")} RON
         </p>
-      </div>
+      </div>}
     </main>
   );
 }
