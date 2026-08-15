@@ -4,7 +4,16 @@ import { nanoid } from "nanoid";
 
 export async function POST(req: NextRequest) {
   try {
-    const { config, name, email, phone } = await req.json();
+    const body = await req.json();
+    const name = typeof body.name === "string" && body.name.trim() ? body.name.trim() : "Client";
+    const email = typeof body.email === "string" ? body.email.trim() : "";
+    const phone = typeof body.phone === "string" ? body.phone.trim() : "";
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !phone) {
+      return NextResponse.json({ error: "Emailul si telefonul sunt obligatorii." }, { status: 400 });
+    }
+
+    const { config } = body;
 
     const { Redis } = await import("@upstash/redis");
     const redis = new Redis({
@@ -15,7 +24,7 @@ export async function POST(req: NextRequest) {
     const id = nanoid(10);
 
     try {
-      await redis.set(`config:${id}`, JSON.stringify({ ...config, _lead: { name, email } }), { ex: 2592000 });
+      await redis.set(`config:${id}`, JSON.stringify({ ...config, _lead: { name, email, phone } }), { ex: 2592000 });
     } catch (redisErr) {
       return NextResponse.json({ error: "Redis failed", detail: String(redisErr) }, { status: 500 });
     }

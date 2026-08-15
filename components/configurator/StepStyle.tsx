@@ -5,8 +5,12 @@ import { COLORWAYS, WORKTOP_OPTIONS, HANDLE_OPTIONS } from "@/data/colorways";
 import type { WorktopStyle } from "@/types/kitchen";
 
 export default function StepStyle() {
-  const { collection, colorway, setColorway, setStep, generate } = useConfigStore();
+  const { collection, colorway, setColorway, setStep, setContact, setShareUrl, generate } = useConfigStore();
   const [finishFilter, setFinishFilter] = useState<"mat" | "lucios">("mat");
+  const [showCapture, setShowCapture] = useState(false);
+  const [captureName, setCaptureName] = useState("");
+  const [captureEmail, setCaptureEmail] = useState("");
+  const [capturePhone, setCapturePhone] = useState("");
   const availableFinishes = collection === "franc" ? (["mat"] as const) : (["mat", "lucios"] as const);
 
   useEffect(() => {
@@ -148,11 +152,91 @@ export default function StepStyle() {
           className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:border-gray-400 transition-all">
           ← Inapoi
         </button>
-        <button onClick={generate}
+        <button onClick={() => setShowCapture(true)}
           className="flex-[2] py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition-all">
           Genereaza bucataria →
         </button>
       </div>
+
+      {showCapture && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+
+              const name = captureName.trim() || "Client";
+              const email = captureEmail.trim();
+              const phone = capturePhone.trim();
+              if (!email || !phone) return;
+
+              setContact({ name, email, phone });
+              generate();
+
+              const { collection, budget, roomFinishes, layout, dimensions, appliances, colorway: selectedColorway, cabinets, totalPrice, constraints } = useConfigStore.getState();
+              fetch("/api/config/save", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  config: { collection, budget, roomFinishes, layout, dimensions, appliances, colorway: selectedColorway, cabinets, totalPrice, constraints },
+                  name,
+                  email,
+                  phone,
+                }),
+              })
+                .then((response) => (response.ok ? response.json() : undefined))
+                .then((data) => {
+                  if (data?.url) setShareUrl(data.url);
+                })
+                .catch(() => {});
+
+              setShowCapture(false);
+            }}
+            className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-6"
+          >
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">Aproape gata!</h2>
+              <p className="mt-1 text-xs text-gray-400">Lasa emailul si telefonul pentru a vedea previzualizarea 3D si a-ti salva configuratia.</p>
+            </div>
+            <input
+              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-gray-900 focus:outline-none"
+              placeholder="Numele tau (optional)"
+              value={captureName}
+              onChange={(event) => setCaptureName(event.target.value)}
+            />
+            <input
+              required
+              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-gray-900 focus:outline-none"
+              type="email"
+              placeholder="Email *"
+              value={captureEmail}
+              onChange={(event) => setCaptureEmail(event.target.value)}
+            />
+            <input
+              required
+              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-gray-900 focus:outline-none"
+              type="tel"
+              placeholder="Telefon *"
+              value={capturePhone}
+              onChange={(event) => setCapturePhone(event.target.value)}
+            />
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowCapture(false)}
+                className="flex-1 rounded-xl border border-gray-200 py-3 text-sm font-semibold text-gray-600"
+              >
+                Inapoi
+              </button>
+              <button
+                type="submit"
+                className="flex-[2] rounded-xl bg-gray-900 py-3 text-sm font-semibold text-white disabled:opacity-40"
+              >
+                Vizualizeaza →
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
