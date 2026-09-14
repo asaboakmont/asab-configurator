@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import ConfiguratorFlow from "@/components/configurator/ConfiguratorFlow";
 import { useConfigStore } from "@/store/configuratorStore";
 import { COLORWAYS, HANDLE_OPTIONS, WORKTOP_OPTIONS } from "@/data/colorways";
-import type { BacksplashTexture, BudgetPreference, BudgetRange, ConfigStep, DesignCollectionId, FloorTexture, LayoutType, OvenPlacement, WallDimensions } from "@/types/kitchen";
+import type { BacksplashTexture, BudgetPreference, BudgetRange, Cabinet, ConfigStep, DesignCollectionId, FloorTexture, LayoutType, OvenPlacement, WallDimensions } from "@/types/kitchen";
 
 export default function Home() {
   useEffect(() => {
@@ -29,6 +29,7 @@ export default function Home() {
         if (c.budget) store.setBudget(normalizeBudget(c.budget));
         if (c.roomFinishes) store.setRoomFinishes(c.roomFinishes);
         store.generate();
+        if (Array.isArray(c.cabinets)) store.restoreCabinets(c.cabinets as Cabinet[]);
       })
       .catch(console.error);
   }, []);

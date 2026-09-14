@@ -29,7 +29,7 @@ const ALL_STEPS = [
 ] as const;
 
 export default function ConfiguratorFlow() {
-  const { step, devConstraintsUnlocked, setDevConstraintsUnlocked, setStep } = useConfigStore();
+  const { step, devConstraintsUnlocked, internalRole, setInternalRole, setStep } = useConfigStore();
   const contentRef = React.useRef<HTMLDivElement>(null);
   const [devLoginOpen, setDevLoginOpen] = React.useState(false);
   const STEPS = React.useMemo(
@@ -37,6 +37,13 @@ export default function ConfiguratorFlow() {
     [devConstraintsUnlocked]
   );
   const stepIndex = Math.max(0, STEPS.findIndex((s) => s.id === step));
+
+  React.useEffect(() => {
+    fetch("/api/internal/session", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data) => setInternalRole(data.role === "admin" || data.role === "designer" ? data.role : null))
+      .catch(() => setInternalRole(null));
+  }, [setInternalRole]);
 
   React.useEffect(() => {
     if (step === "constraints" && !devConstraintsUnlocked) setStep("sink");
@@ -84,17 +91,17 @@ export default function ConfiguratorFlow() {
       </header>
 
       <div ref={contentRef} className="flex-1 overflow-y-auto">
-        <div className="max-w-lg w-full mx-auto px-4 py-8">
+        <div className={`max-w-lg w-full mx-auto px-4 py-8 ${internalRole === "admin" && step === "viewer" ? "admin-viewer-shell" : ""}`}>
           {step === "collection"  && (
             <>
               <StepCollection />
-              {!devConstraintsUnlocked && (
+              {!internalRole && (
                 <button
                   type="button"
                   onClick={() => setDevLoginOpen(true)}
                   className="mt-8 block w-full text-center text-xs text-gray-300 underline underline-offset-4 hover:text-gray-500"
                 >
-                  Acces dezvoltator
+                  Acces intern
                 </button>
               )}
             </>
@@ -114,8 +121,8 @@ export default function ConfiguratorFlow() {
       {devLoginOpen && (
         <DevLoginModal
           onClose={() => setDevLoginOpen(false)}
-          onUnlock={() => {
-            setDevConstraintsUnlocked(true);
+          onUnlock={(role) => {
+            setInternalRole(role);
             setDevLoginOpen(false);
           }}
         />
@@ -124,27 +131,40 @@ export default function ConfiguratorFlow() {
   );
 }
 
-function DevLoginModal({ onClose, onUnlock }: { onClose: () => void; onUnlock: () => void }) {
+function DevLoginModal({ onClose, onUnlock }: { onClose: () => void; onUnlock: (role: "admin" | "designer") => void }) {
   const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
-  const [error, setError] = React.useState(false);
+  const [error, setError] = React.useState("");
+  const [submitting, setSubmitting] = React.useState(false);
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (username === "admin" && password === "admin") {
-      setError(false);
-      onUnlock();
-      return;
+    setSubmitting(true);
+    setError("");
+    try {
+      const response = await fetch("/api/internal/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || (data.role !== "admin" && data.role !== "designer")) {
+        throw new Error(data.error ?? "Utilizator sau parola incorecta.");
+      }
+      onUnlock(data.role);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nu am putut verifica accesul intern.");
+    } finally {
+      setSubmitting(false);
     }
-    setError(true);
   };
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 px-4">
       <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-5 shadow-xl">
         <div>
-          <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">Acces dezvoltator</p>
-          <h2 className="text-lg font-semibold text-gray-900">Activeaza constrangerile</h2>
+          <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">Acces intern</p>
+          <h2 className="text-lg font-semibold text-gray-900">Instrumente designer</h2>
         </div>
         <label className="block">
           <span className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Utilizator</span>
@@ -163,13 +183,13 @@ function DevLoginModal({ onClose, onUnlock }: { onClose: () => void; onUnlock: (
             className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-gray-900"
           />
         </label>
-        {error && <p className="text-xs font-semibold text-red-600">Utilizator sau parola incorecta.</p>}
+        {error && <p className="text-xs font-semibold text-red-600">{error}</p>}
         <div className="flex gap-3 pt-1">
           <button type="button" onClick={onClose} className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600">
             Inchide
           </button>
-          <button type="submit" className="flex-[2] py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold">
-            Activeaza
+          <button type="submit" disabled={submitting} className="flex-[2] py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold disabled:opacity-50">
+            {submitting ? "Se verifica…" : "Activeaza"}
           </button>
         </div>
       </form>

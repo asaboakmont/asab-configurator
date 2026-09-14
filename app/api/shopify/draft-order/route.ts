@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { nanoid } from "nanoid";
+import { getInternalRole, usesInternalCabinetFeatures } from "@/lib/auth/internalSession";
 import type {
   BudgetPreference,
   Cabinet,
@@ -30,6 +31,9 @@ const SHIPPING_PRICE_RON = 295;
 
 export async function POST(req: NextRequest) {
   const body: DraftOrderPayload = await req.json();
+  if (usesInternalCabinetFeatures(body) && !getInternalRole(req)) {
+    return NextResponse.json({ error: "Autorizare interna necesara pentru preturi custom." }, { status: 403 });
+  }
   const {
     cabinets,
     colorway,

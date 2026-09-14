@@ -110,3 +110,14 @@ input, select, textarea {
   0%   { transform: translate(-50%, -50%) rotate(0deg)   translateX(20px); }
   100% { transform: translate(-50%, -50%) rotate(360deg) translateX(20px); }
 }
+
+/* The admin inspector occupies its own column; Canvas measures only the scene. */
+@media (min-width: 1024px) {
+  .admin-viewer-shell { max-width: none; padding: 0; }
+  .admin-desktop-viewer { margin: 0 !important; display: grid; grid-template-columns: minmax(0, 1fr) 360px; overflow: hidden; }
+  .admin-desktop-viewer > #kitchen-viewer { position: relative; grid-column: 1; min-width: 0; height: 100%; overflow: hidden; }
+  .admin-inspector { grid-column: 2; min-height: 0; overflow-y: auto; padding: 20px 16px; background: white; border-left: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 20px; }
+  .admin-inspector > div { position: static; inset: auto; flex-shrink: 0; }
+  .admin-inspector > div > .max-h-\[55vh\] { max-height: none; overflow: visible; }
+  .admin-inspector > .bg-black\/35 { background: transparent; padding: 0; }
+}

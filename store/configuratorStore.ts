@@ -4,6 +4,7 @@ import type {
   WallDimensions, Appliances, Colorway, Cabinet, RoomConstraints,
   Opening, Obstruction, Boiler, ServicePoint, DesignCollectionId,
   BudgetPreference, RoomFinishes
+  , InternalRole
 } from "@/types/kitchen";
 import { COLORWAYS } from "@/data/colorways";
 import { resolveLayout, calcTotalPrice, snapDimension } from "@/lib/rules/resolver";
@@ -23,6 +24,7 @@ interface ConfiguratorStore {
   contact:    ContactInfo;
   shareUrl?:   string;
   devConstraintsUnlocked: boolean;
+  internalRole: InternalRole | null;
   cabinets:   Cabinet[];
   totalPrice:    number;
   originalPrice: number;
@@ -48,6 +50,8 @@ interface ConfiguratorStore {
   setContact:    (c: Partial<ContactInfo>) => void;
   setShareUrl:   (url?: string) => void;
   setDevConstraintsUnlocked: (unlocked: boolean) => void;
+  setInternalRole: (role: InternalRole | null) => void;
+  restoreCabinets: (cabinets: Cabinet[]) => void;
   generate:      () => void;
 }
 
@@ -83,6 +87,7 @@ export const useConfigStore = create<ConfiguratorStore>((set, get) => ({
   contact:    { name: "", email: "", phone: "", city: "" },
   shareUrl:    undefined,
   devConstraintsUnlocked: false,
+  internalRole: null,
   cabinets:      [],
   totalPrice:    0,
   originalPrice: 0,
@@ -192,6 +197,22 @@ export const useConfigStore = create<ConfiguratorStore>((set, get) => ({
   setContact:    (c)        => set((s) => ({ contact: { ...s.contact, ...c } })),
   setShareUrl:   (shareUrl) => set({ shareUrl }),
   setDevConstraintsUnlocked: (devConstraintsUnlocked) => set({ devConstraintsUnlocked }),
+  setInternalRole: (internalRole) => set({
+    internalRole,
+    devConstraintsUnlocked: internalRole !== null,
+  }),
+  restoreCabinets: (cabinets) => {
+    const { collection, dimensions, layout } = get();
+    const normalized = cabinets.map((cabinet, index) => normalizeCabinet(cabinet, index));
+    const collectionCabinets = applyCollectionToCabinets(normalized, collection);
+    const { original, discounted } = calcTotalPrice(
+      collectionCabinets,
+      dimensions.wallA,
+      dimensions.wallB,
+      layout
+    );
+    set({ cabinets: collectionCabinets, totalPrice: discounted, originalPrice: original });
+  },
   generate: () => {
     const { collection, layout, dimensions, appliances, constraints, devConstraintsUnlocked } = get();
     const resolvedLayout = layout === "peninsula" ? "linear" : layout;
@@ -214,7 +235,10 @@ export const useConfigStore = create<ConfiguratorStore>((set, get) => ({
     };
     const activeConstraints = devConstraintsUnlocked ? constraints : undefined;
     const { cabinets, warnings } = resolveLayout(resolvedLayout, normalizedDimensions, scoringAppliances, activeConstraints);
-    const collectionCabinets = applyCollectionToCabinets(cabinets, collection);
+    const collectionCabinets = applyCollectionToCabinets(
+      cabinets.map((cabinet, index) => normalizeCabinet(cabinet, index)),
+      collection
+    );
     const { original, discounted } = calcTotalPrice(collectionCabinets, normalizedDimensions.wallA, normalizedDimensions.wallB, resolvedLayout);
     const hasIsland = resolvedLayout === "island" || normalizedDimensions.hasIsland === true;
     const layoutWarnings = hasIsland
@@ -235,3 +259,12 @@ export const useConfigStore = create<ConfiguratorStore>((set, get) => ({
     });
   },
 }));
+
+function normalizeCabinet(cabinet: Cabinet, index: number): Cabinet {
+  return {
+    ...cabinet,
+    id: cabinet.id ?? `${cabinet.baseSku ?? cabinet.sku}-${cabinet.wall}-${cabinet.type}-${cabinet.xPos}-${index}`,
+    standardWidth: cabinet.standardWidth ?? cabinet.width,
+    isCustom: cabinet.isCustom ?? false,
+  };
+}

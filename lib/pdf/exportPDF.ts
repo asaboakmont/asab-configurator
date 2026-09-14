@@ -1,12 +1,14 @@
+import { CABINET_DISCOUNT } from "@/lib/rules/resolver";
 import jsPDF from "jspdf";
 import { BACKSPLASH_OPTIONS, BUDGET_OPTIONS, DESIGN_COLLECTIONS, FLOOR_TEXTURE_OPTIONS, WALL_COLOR_OPTIONS } from "@/data/designCollections";
 import type { BudgetPreference, Cabinet, Colorway, DesignCollectionId, LayoutType, RoomConstraints, RoomFinishes, WallDimensions } from "@/types/kitchen";
 
-interface PDFExportOptions {
+export interface PDFExportOptions {
   cabinets:    Cabinet[];
   colorway:    Colorway;
   handle:      string;
   totalPrice:  number;
+  includeCabinetTotal?: boolean;
   layout:      LayoutType;
   dimensions:  WallDimensions;
   screenshot?: string;
@@ -159,12 +161,20 @@ export async function exportKitchenPDF(opts: PDFExportOptions) {
     }
     doc.setFontSize(8);
     doc.text(cab.sku,                                    margin + 1,        y);
-    doc.text(cab.label ?? cab.sku,                       margin + 22,       y);
+    doc.text(
+      cab.isCustom
+        ? `${cab.label ?? cab.sku} (custom; std ${cab.standardWidth ?? cab.width} cm)`
+        : cab.label ?? cab.sku,
+      margin + 22,
+      y
+    );
     doc.text(`${cab.width}x${cab.height}x${cab.depth}`,  margin + 90,       y);
-    doc.text(cab.wall,                                   margin + 130,      y);
+    doc.text(cab.placementMode === "free" ? "LIBER" : cab.wall, margin + 130, y);
     doc.text(cab.price.toLocaleString("ro-RO"),          pageW - margin - 1, y, { align: "right" });
     y += 7;
   });
+
+  if (y > 270) { doc.addPage(); y = 20; }
 
   // Worktop row
 const worktopLengthCm =
@@ -249,6 +259,19 @@ y += 7;
   doc.setFont("helvetica", "bold");
   doc.setTextColor(140, 106, 63);
   
+  if (opts.includeCabinetTotal) {
+    const subtotal = cabinets.reduce((sum, cabinet) => sum + (cabinet.price ?? 0), 0);
+    const rows: [string, number][] = [
+      ["Subtotal dulapuri", subtotal],
+      [`Reducere dulapuri (${Math.round(CABINET_DISCOUNT * 100)}%)`, -subtotal * CABINET_DISCOUNT],
+      ["TOTAL DULAPURI (fara blat)", Math.round(subtotal * (1 - CABINET_DISCOUNT))],
+    ];
+    for (const [label, value] of rows) {
+      doc.text(label, margin, y);
+      doc.text(`${value.toLocaleString("ro-RO", { maximumFractionDigits: 2 })} RON`, pageW - margin, y, { align: "right" });
+      y += 7;
+    }
+  }
   y += 12;
   if (y > 246) { doc.addPage(); y = 20; }
   doc.setFontSize(11);

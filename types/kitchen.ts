@@ -1,6 +1,8 @@
 export type LayoutType = "linear" | "l-shape" | "island" | "peninsula";
 export type WallSide   = "A" | "B" | "C" | "I" | "P";  // A=back, B=left, C=right, I=island, P=peninsula
 export type DoorDirection = "S" | "D";
+export type InternalRole = "admin" | "designer";
+export type CabinetPlacementMode = "wall" | "free";
 
 export type DesignCollectionId = "japandi" | "germain" | "franc";
 
@@ -78,21 +80,46 @@ export type CabinetType =
   | "tall" | "tall-oven" | "tall-fridge";
 
 export interface Cabinet {
+  id?: string;
   sku:    string;
   baseSku?: string;
   type:   CabinetType;
   width:  number;
+  standardWidth?: number;
   height: number;
   depth:  number;
   wall:   WallSide;
   xPos:   number;
   price:  number;
+  standardPrice?: number;
+  isCustom?: boolean;
+  customPriceBreakdown?: CustomCabinetPriceBreakdown;
   doorDirection?: "S" | "D";
   label?:      string;
   cornerSide?: "STG" | "DR";
   zPos?: number;
   runSide?: "left" | "right";
   conflicts?: CabinetConflict[];
+  placementMode?: CabinetPlacementMode;
+  freePosition?: { x: number; z: number };
+  rotationYDegrees?: 0 | 90 | 180 | 270;
+  placementGroupId?: string;
+}
+
+export interface CustomCabinetPricing {
+  extraWidthPerMeter: number;
+  customSurchargePercent: number;
+  minimumCustomPricePercent: number;
+}
+
+export interface CustomCabinetPriceBreakdown {
+  standardPrice: number;
+  customWidth: number;
+  standardWidth: number;
+  dimensionalAdjustment: number;
+  customSurcharge: number;
+  minimumPrice: number;
+  finalPrice: number;
 }
 
 export type CabinetConflictType = "window" | "door" | "obstruction" | "boiler";

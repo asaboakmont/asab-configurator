@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { nanoid } from "nanoid";
+import { getInternalRole } from "@/lib/auth/internalSession";
 
 interface ImportPayload {
   config?: unknown;
@@ -11,6 +12,9 @@ interface ImportPayload {
 
 export async function POST(req: NextRequest) {
   try {
+    if (!getInternalRole(req)) {
+      return NextResponse.json({ error: "Autorizare interna necesara." }, { status: 403 });
+    }
     const body = (await req.json()) as ImportPayload;
     const config = parseConfig(body);
 

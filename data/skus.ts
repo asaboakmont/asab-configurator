@@ -1,4 +1,5 @@
-import type { Cabinet, CabinetType, DesignCollectionId } from "@/types/kitchen";
+import type { Cabinet, CabinetType, CustomCabinetPricing, DesignCollectionId } from "@/types/kitchen";
+import { calculateCustomCabinetPrice } from "@/lib/pricing/customCabinetPrice";
 
 export interface SkuDefinition {
   sku:         string;
@@ -9,7 +10,14 @@ export interface SkuDefinition {
   price:       number;
   label:       string;
   cornerSide?: "STG" | "DR";
+  customPricing?: CustomCabinetPricing;
 }
+
+export const CUSTOM_CABINET_PRICING: Record<"base" | "wall" | "tall", CustomCabinetPricing> = {
+  base: { extraWidthPerMeter: 350, customSurchargePercent: 15, minimumCustomPricePercent: 90 },
+  wall: { extraWidthPerMeter: 280, customSurchargePercent: 15, minimumCustomPricePercent: 90 },
+  tall: { extraWidthPerMeter: 450, customSurchargePercent: 18, minimumCustomPricePercent: 90 },
+};
 
 export const BASE_CABINETS: SkuDefinition[] = [
   { sku: "1001-DR",  type: "base-corner",     width: 95, height: 86, depth: 55, price: 706,  label: "CI Colt 950mm Dreapta",       cornerSide: "DR" },
@@ -102,12 +110,35 @@ export function applyCollectionToCabinet(cabinet: Cabinet, collection: DesignCol
   const nextSku = toCollectionSku(baseSku, collection);
   const definition = getSkuByCode(nextSku);
 
+  const standardWidth = cabinet.standardWidth ?? definition?.width ?? cabinet.width;
+  const standardPrice = definition?.price ?? cabinet.standardPrice ?? cabinet.price;
+  const isCustom = cabinet.width !== standardWidth;
+  const customPriceBreakdown = isCustom
+    ? calculateCustomCabinetPrice({
+        standardPrice,
+        standardWidth,
+        customWidth: cabinet.width,
+        pricing: definition?.customPricing ?? customPricingForType(cabinet.type),
+      })
+    : undefined;
+
   return {
     ...cabinet,
+    id: cabinet.id ?? `${baseSku}-${cabinet.wall}-${cabinet.type}-${cabinet.xPos}`,
     sku: nextSku,
     baseSku,
-    price: definition?.price ?? cabinet.price,
+    standardWidth,
+    standardPrice,
+    isCustom,
+    customPriceBreakdown,
+    price: customPriceBreakdown?.finalPrice ?? standardPrice,
   };
+}
+
+export function customPricingForType(type: CabinetType): CustomCabinetPricing {
+  if (type.startsWith("wall")) return CUSTOM_CABINET_PRICING.wall;
+  if (type.startsWith("tall")) return CUSTOM_CABINET_PRICING.tall;
+  return CUSTOM_CABINET_PRICING.base;
 }
 
 export function applyCollectionToCabinets(cabinets: Cabinet[], collection: DesignCollectionId): Cabinet[] {

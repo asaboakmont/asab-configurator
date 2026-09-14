@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { nanoid } from "nanoid";
+import { getInternalRole, usesInternalCabinetFeatures } from "@/lib/auth/internalSession";
 
 interface TechnicianBookingPayload {
   config?: unknown;
@@ -14,6 +15,9 @@ interface TechnicianBookingPayload {
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as TechnicianBookingPayload;
+    if (usesInternalCabinetFeatures(body.config) && !getInternalRole(req)) {
+      return NextResponse.json({ error: "Autorizare interna necesara pentru configuratii custom." }, { status: 403 });
+    }
     const name = clean(body.name);
     const email = clean(body.email);
     const phone = clean(body.phone);

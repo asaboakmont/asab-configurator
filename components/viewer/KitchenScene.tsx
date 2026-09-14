@@ -5,10 +5,12 @@ import { ContactShadows, Html, OrbitControls, SoftShadows } from "@react-three/d
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { Cabinet, Colorway, DesignCollectionId, Obstruction, RoomConstraints, RoomFinishes, RoomWall, WallSide } from "@/types/kitchen";
+import { cabinetExportData, cabinetObjectName } from "@/lib/asab/exportGLB";
 import { RULES } from "@/lib/rules/resolver";
 import { stripCollectionSku } from "@/data/skus";
 
 interface KitchenSceneProps {
+  onSceneReady?: (scene: THREE.Scene | null) => void;
   cabinets: Cabinet[];
   colorway: Colorway;
   wallA: number;
@@ -19,6 +21,7 @@ interface KitchenSceneProps {
   roomFinishes?: RoomFinishes;
   focusWall?: WallSide | null;
   renderPreset?: RenderCameraPreset;
+  adminDesktop?: boolean;
   editMode?: boolean;
   selectedCabinetKey?: string | null;
   onCabinetSelect?: (key: string) => void;
@@ -41,7 +44,7 @@ interface KitchenSceneProps {
 export type RenderCameraPreset = "interactive" | "NW" | "NE" | "TOP";
 
 function cabinetSceneKey(cabinet: Cabinet): string {
-  return `${cabinet.sku}-${cabinet.wall}-${cabinet.type}-${cabinet.xPos}`;
+  return cabinet.id ?? `${cabinet.sku}-${cabinet.wall}-${cabinet.type}-${cabinet.xPos}`;
 }
 
 const CM = 0.1;
@@ -196,6 +199,7 @@ function createDoorMaterial(colorway: Colorway): THREE.Material {
 }
 
 export default function KitchenScene({
+  onSceneReady,
   cabinets,
   colorway,
   wallA,
@@ -206,6 +210,7 @@ export default function KitchenScene({
   roomFinishes,
   focusWall,
   renderPreset = "interactive",
+  adminDesktop = false,
   editMode = false,
   selectedCabinetKey,
   onCabinetSelect,
@@ -236,34 +241,36 @@ export default function KitchenScene({
         preserveDrawingBuffer: true,
       }}
     >
+      <SceneExportBridge onSceneReady={onSceneReady} />
       <SceneQualitySetup />
       <ConstructionPaperBackground />
       <SoftShadows size={18} samples={12} focus={0.75} />
       <OrbitControls
         ref={controlsRef}
         enablePan
-        zoomToCursor
-        minPolarAngle={Math.PI / 10}
+        zoomToCursor={!adminDesktop}
+        minPolarAngle={adminDesktop && renderPreset === "TOP" ? 0 : Math.PI / 10}
         maxPolarAngle={Math.PI / 2.1}
         minDistance={2}
         maxDistance={95}
         target={[midX, 1.2, 0.315]}
       />
+      {adminDesktop && <AdminCamera cabinets={cabinets} wallA={wallA} focusWall={focusWall} preset={renderPreset} controlsRef={controlsRef} />}
       <WallEditOrbitExit
-        focusWall={renderPreset === "interactive" ? focusWall : null}
+        focusWall={!adminDesktop && renderPreset === "interactive" ? focusWall : null}
         wallA={wallA}
         wallB={wallB}
         controlsRef={controlsRef}
         onExit={onExitWallEdit}
       />
-      <WallFocusCamera focusWall={renderPreset === "interactive" ? focusWall : null} wallA={wallA} wallB={wallB} controlsRef={controlsRef} />
-      <RenderPresetCamera
+      {!adminDesktop && <WallFocusCamera focusWall={!adminDesktop && renderPreset === "interactive" ? focusWall : null} wallA={wallA} wallB={wallB} controlsRef={controlsRef} />}
+      {!adminDesktop && <RenderPresetCamera
         preset={renderPreset}
         cabinets={cabinets}
         wallA={wallA}
         wallB={wallB}
         controlsRef={controlsRef}
-      />
+      />}
 
       <hemisphereLight args={["#fffaf0", "#eee7da", 1.05]} />
       <ambientLight intensity={0.52} />
@@ -288,7 +295,7 @@ export default function KitchenScene({
 
       <Room wallA={wallA} wallB={wallB} cornerSide={cornerSide} roomFinishes={roomFinishes} />
       <ConstraintMarkers constraints={constraints} wallA={wallA} />
-      {!editMode && renderPreset === "interactive" && (
+      {!adminDesktop && !editMode && renderPreset === "interactive" && (
         <InSceneWallEditButtons
           walls={editableWalls}
           wallA={wallA}
@@ -355,6 +362,15 @@ export default function KitchenScene({
       />
     </Canvas>
   );
+}
+
+function SceneExportBridge({ onSceneReady }: { onSceneReady?: (scene: THREE.Scene | null) => void }) {
+  const scene = useThree(state => state.scene);
+  React.useEffect(() => {
+    onSceneReady?.(scene);
+    return () => onSceneReady?.(null);
+  }, [scene, onSceneReady]);
+  return null;
 }
 
 function SceneQualitySetup() {
@@ -437,6 +453,49 @@ function ConstructionPaperBackground() {
     };
   }, [scene, texture]);
 
+  return null;
+}
+
+function AdminCamera({ cabinets, wallA, focusWall, preset, controlsRef }: {
+  cabinets: Cabinet[]; wallA: number; focusWall?: WallSide | null; preset: RenderCameraPreset;
+  controlsRef: React.MutableRefObject<any>;
+}) {
+  const { camera, size } = useThree();
+  React.useEffect(() => {
+    const bounds = getRenderContentBounds(cabinets, wallA);
+    // Include free placements without changing customer/export framing.
+    let minX = bounds.centerX - bounds.width / 2, maxX = bounds.centerX + bounds.width / 2;
+    let minZ = bounds.centerZ - bounds.depth / 2, maxZ = bounds.centerZ + bounds.depth / 2;
+    for (const cabinet of cabinets) {
+      if (cabinet.placementMode !== "free" || !cabinet.freePosition) continue;
+      const turned = (cabinet.rotationYDegrees ?? 0) % 180 !== 0;
+      const x = cabinet.freePosition.x * CM, z = cabinet.freePosition.z * CM;
+      const halfX = (turned ? cabinet.depth : cabinet.width) * CM / 2;
+      const halfZ = (turned ? cabinet.width : cabinet.depth) * CM / 2;
+      minX = Math.min(minX, x - halfX); maxX = Math.max(maxX, x + halfX);
+      minZ = Math.min(minZ, z - halfZ); maxZ = Math.max(maxZ, z + halfZ);
+    }
+    const height = Math.max(220, ...cabinets.map(c => c.height + (c.type.startsWith("wall") ? 146.9 : 0))) * CM;
+    const target = new THREE.Vector3((minX + maxX) / 2, height / 2, (minZ + maxZ) / 2);
+    const perspective = camera as THREE.PerspectiveCamera;
+    perspective.fov = 50;
+    const direction = preset === "TOP" ? new THREE.Vector3(0, 1, 0.001) : preset === "NW" ? new THREE.Vector3(-0.78, 0.55, 0.78) : preset === "NE" ? new THREE.Vector3(0.78, 0.55, 0.78) : focusWall === "B" ? new THREE.Vector3(1, 0.12, 0) : focusWall === "C" ? new THREE.Vector3(-1, 0.12, 0) : new THREE.Vector3(0, focusWall ? 0.12 : 0.45, 1);
+    direction.normalize();
+    const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), direction).normalize();
+    const up = new THREE.Vector3().crossVectors(direction, right).normalize();
+    const tanY = Math.tan(THREE.MathUtils.degToRad(25));
+    const tanX = tanY * size.width / Math.max(1, size.height);
+    let distance = 2;
+    for (const x of [minX, maxX]) for (const y of [0, height]) for (const z of [minZ, maxZ]) {
+      const offset = new THREE.Vector3(x, y, z).sub(target);
+      distance = Math.max(distance, offset.dot(direction) + Math.max(Math.abs(offset.dot(right)) / tanX, Math.abs(offset.dot(up)) / tanY) * 1.15);
+    }
+    camera.position.copy(target).addScaledVector(direction, distance);
+    camera.lookAt(target);
+    perspective.updateProjectionMatrix();
+    controlsRef.current?.target.copy(target);
+    controlsRef.current?.update();
+  }, [camera, cabinets, wallA, focusWall, preset, size.width, size.height, controlsRef]);
   return null;
 }
 
@@ -1030,8 +1089,10 @@ function Room({
   }, [roomFinishes?.floorColor, roomFinishes?.floorTexture]);
 
   return (
-    <group>
+    <group userData={{ exportGLB: true, asab: { category: "room", finishes: roomFinishes } }}>
       <mesh
+        name="FLOOR"
+        userData={{ asab: { category: "floor" } }}
         receiveShadow
         position={[wallA * CM / 2, -floorThickness / 2, roomD / 2]}
       >
@@ -1039,7 +1100,7 @@ function Room({
         <primitive object={woodFloorMaterial} />
       </mesh>
 
-      <mesh receiveShadow visible={wallOpacity.back > 0} position={[wallA * CM / 2, wallH / 2, -wallThickness / 2]}>
+      <mesh name="WALL_A" userData={{ exportOpaque: true, asab: { category: "wall", wall: "A" } }} receiveShadow visible={wallOpacity.back > 0} position={[wallA * CM / 2, wallH / 2, -wallThickness / 2]}>
         <boxGeometry args={[wallA * CM, wallH, wallThickness]} />
         <meshStandardMaterial
           color={wallColor}
@@ -1066,7 +1127,7 @@ function Room({
         </mesh>
       )}
 
-      <mesh receiveShadow visible={wallOpacity.left > 0} position={[leftWallX - wallThickness / 2, wallH / 2, roomD / 2]}>
+      <mesh name="WALL_B" userData={{ exportOpaque: true, asab: { category: "wall", wall: "B" } }} receiveShadow visible={wallOpacity.left > 0} position={[leftWallX - wallThickness / 2, wallH / 2, roomD / 2]}>
         <boxGeometry args={[wallThickness, wallH, roomD]} />
         <meshStandardMaterial
           color={sideWallColor}
@@ -1093,7 +1154,7 @@ function Room({
         </mesh>
       )}
 
-      <mesh receiveShadow visible={wallOpacity.right > 0} position={[rightWallX + wallThickness / 2, wallH / 2, roomD / 2]}>
+      <mesh name="WALL_C" userData={{ exportOpaque: true, asab: { category: "wall", wall: "C" } }} receiveShadow visible={wallOpacity.right > 0} position={[rightWallX + wallThickness / 2, wallH / 2, roomD / 2]}>
         <boxGeometry args={[wallThickness, wallH, roomD]} />
         <meshStandardMaterial
           color={sideWallColor}
@@ -1121,7 +1182,7 @@ function Room({
       )}
 
       {hasSideRun && (
-        <mesh receiveShadow visible={wallOpacity.front > 0} position={[wallA * CM / 2, wallH / 2, roomD + wallThickness / 2]}>
+        <mesh name="WALL_FRONT" userData={{ exportOpaque: true, asab: { category: "wall", wall: "front" } }} receiveShadow visible={wallOpacity.front > 0} position={[wallA * CM / 2, wallH / 2, roomD + wallThickness / 2]}>
           <boxGeometry args={[wallA * CM, wallH, wallThickness]} />
           <meshStandardMaterial
             color={shadeHex(wallColor, -3)}
@@ -1222,7 +1283,7 @@ function ConstraintMarkers({
           depthOffset: opening.type === "window" ? 0.9 : 1.1,
         });
         return (
-          <group key={opening.id} position={position} rotation={rotation}>
+          <group userData={{ exportGLB: true, asab: { category: opening.type, ...opening } }} key={opening.id} position={position} rotation={rotation}>
             <OpeningMarker opening={opening} />
           </group>
         );
@@ -1240,7 +1301,7 @@ function ConstraintMarkers({
           depthOffset: Math.max(1, obstruction.depth / 2),
         });
         return (
-          <group key={obstruction.id} position={position} rotation={rotation}>
+          <group userData={{ exportGLB: true, asab: { category: "obstruction", ...obstruction } }} key={obstruction.id} position={position} rotation={rotation}>
             <ObstructionMarker obstruction={obstruction} />
           </group>
         );
@@ -1261,7 +1322,7 @@ function ConstraintMarkers({
           depthOffset: 2.4,
         });
         return (
-          <group key={point.id} position={position} rotation={rotation}>
+          <group userData={{ excludeFromGLB: true }} key={point.id} position={position} rotation={rotation}>
             <ServicePointMarker point={point} />
           </group>
         );
@@ -1482,7 +1543,7 @@ function BoilerMarker({ boiler, wallA }: { boiler: NonNullable<RoomConstraints["
         <boxGeometry args={[boiler.width * CM, boiler.height * CM, Math.max(6, boiler.depth) * CM]} />
         <meshStandardMaterial color="#6b7280" transparent opacity={0.7} roughness={0.65} />
       </mesh>
-      <mesh position={[0, -(boiler.height / 2 + boiler.pipeClearance / 2) * CM, 0]}>
+      <mesh userData={{ excludeFromGLB: true }} position={[0, -(boiler.height / 2 + boiler.pipeClearance / 2) * CM, 0]}>
         <boxGeometry args={[(boiler.width + boiler.pipeClearance * 2) * CM, boiler.pipeClearance * CM, 2 * CM]} />
         <meshStandardMaterial color="#ef4444" transparent opacity={0.45} />
       </mesh>
@@ -1490,7 +1551,7 @@ function BoilerMarker({ boiler, wallA }: { boiler: NonNullable<RoomConstraints["
   );
 
   return (
-    <group position={position} rotation={rotation}>
+    <group userData={{ exportGLB: true, asab: { category: "boiler", ...boiler } }} position={position} rotation={rotation}>
       <ConstraintModel
         src="/technical/boiler.glb"
         basePath="/technical/"
@@ -1797,7 +1858,7 @@ function CabinetMeshGLB({
     shouldFlattenChildRotations && !shouldPreserveChildRotation(mesh) ? [0, 0, 0] as [number, number, number] : mesh.rotation;
 
   return (
-    <group position={[posX, posY, posZ]} rotation={[0, rotY, 0]}>
+    <group name={cabinetObjectName(cabinet)} userData={cabinetExportData(cabinet, colorway, collection)} position={[posX, posY, posZ]} rotation={[0, rotY, 0]}>
       {(() => {
         const nonDoorMeshes = meshes.filter((m) => !["door", "handle"].includes(m.matName));
         const doorMeshes = meshes.filter((m) => ["door", "handle"].includes(m.matName));
@@ -1807,6 +1868,7 @@ function CabinetMeshGLB({
             {nonDoorMeshes.map((m, i) => (
               <React.Fragment key={`c-${i}`}>
                 <mesh
+                  userData={{ asab: { category: m.matName, materialId: m.matName, colorwayId: colorway.id } }}
                   geometry={m.geometry}
                   material={matMap[m.matName] ?? carcassMat}
                   position={m.position}
@@ -1844,6 +1906,7 @@ function CabinetMeshGLB({
                   ]}
                 >
                   <mesh
+                    userData={{ asab: { category: isHandle ? "handle" : "front", materialId: m.matName, colorwayId: colorway.id } }}
                     geometry={m.geometry}
                     material={matMap[m.matName] ?? carcassMat}
                     position={meshPosition}
@@ -1893,7 +1956,7 @@ function MeshEdgeLines({
   }, [edgesGeometry]);
 
   return (
-    <lineSegments
+    <lineSegments userData={{ excludeFromGLB: true }}
       geometry={edgesGeometry}
       material={material}
       position={position}
@@ -1937,7 +2000,7 @@ function DoorRevealLines({
   }, [material]);
 
   return (
-    <group renderOrder={FRONT_REVEAL_RENDER_ORDER}>
+    <group userData={{ excludeFromGLB: true }} renderOrder={FRONT_REVEAL_RENDER_ORDER}>
       <mesh material={material} position={[-width / 2 + inset, 0, z]}>
         <boxGeometry args={[lineW, height - inset * 2, 0.05 * CM]} />
       </mesh>
@@ -1988,7 +2051,7 @@ function CabinetBoxEdgeLines({
   }, [geometry, material]);
 
   return (
-    <lineSegments
+    <lineSegments userData={{ excludeFromGLB: true }}
       geometry={geometry}
       material={material}
       renderOrder={FRONT_REVEAL_RENDER_ORDER}
@@ -2081,7 +2144,7 @@ function CabinetSelectionTarget({
   onRemoveSelected?: () => void;
 }) {
   return (
-    <group position={position} rotation={[0, rotationY, 0]}>
+    <group userData={{ excludeFromGLB: true }} position={position} rotation={[0, rotationY, 0]}>
       <mesh
         onClick={(event) => {
           event.stopPropagation();
@@ -2101,7 +2164,7 @@ function CabinetSelectionTarget({
           opacity={0.55}
         />
       )}
-      {selected && (
+      {selected && (onMoveSelected || onRemoveSelected) && (
         <SelectedCabinetViewportControls
           width={width}
           height={height}
@@ -2271,7 +2334,11 @@ function CabinetMesh({
   let posZ: number;
   let rotY: number;
 
-  if (cabinet.wall === "B") {
+  if (cabinet.placementMode === "free" && cabinet.freePosition) {
+    posX = cabinet.freePosition.x * CM;
+    posZ = cabinet.freePosition.z * CM;
+    rotY = THREE.MathUtils.degToRad(cabinet.rotationYDegrees ?? 0);
+  } else if (cabinet.wall === "B") {
     if (isCorner) {
       const cornerOffset = isWallCab ? 0 : RULES.CORNER_BASE_OFFSET * CM;
       posX = cornerOffset + (width * CM) / 2;
@@ -2437,6 +2504,8 @@ function CabinetMesh({
   const BROKEN_SKUS: string[] = [];
 
   const hasModel =
+    !cabinet.isCustom &&
+    cabinet.placementMode !== "free" &&
     MODEL_SKUS.includes(cabinet.baseSku ?? stripCollectionSku(cabinet.sku)) &&
     !BROKEN_SKUS.includes(cabinet.baseSku ?? stripCollectionSku(cabinet.sku));
 
@@ -2456,7 +2525,9 @@ function CabinetMesh({
 
     const WALL_OFFSET = isWallCab ? 0 * CM : 5.0 * CM;
 
-    if (isCorner) {
+    if (cabinet.placementMode === "free") {
+      // Free-placement models use the exact center transform calculated above.
+    } else if (isCorner) {
       const off = type === "base-corner" ? RULES.CORNER_BASE_OFFSET * CM : 0;
       if (cabinet.wall === "B") {
         glbPosX = off;        // 5cm from Wall B
@@ -2489,7 +2560,7 @@ function CabinetMesh({
     }
 
     const fallback = (
-      <group position={[posX, posY, posZ]} rotation={[0, rotY, 0]}>
+      <group name={cabinetObjectName(cabinet)} userData={cabinetExportData(cabinet, colorway, collection)} position={[posX, posY, posZ]} rotation={[0, rotY, 0]}>
         <mesh castShadow receiveShadow material={carcassMat}>
           <boxGeometry args={[width * CM, height * CM, depth * CM]} />
         </mesh>
@@ -2539,7 +2610,7 @@ function CabinetMesh({
 
       {selectionOverlay}
 
-      <group position={[posX, posY, posZ]} rotation={[0, rotY, 0]}>
+      <group name={cabinetObjectName(cabinet)} userData={cabinetExportData(cabinet, colorway, collection)} position={[posX, posY, posZ]} rotation={[0, rotY, 0]}>
       <CabinetBoxEdgeLines
         width={W}
         height={H}
@@ -2582,7 +2653,7 @@ function CabinetMesh({
 
       {hasDoors && numDoors === 1 && (
         <group position={[0, -PLINTH_H / 2, D / 2 + T / 2]}>
-          <mesh castShadow material={doorMat}>
+          <mesh userData={{ asab: { category: "front", colorwayId: colorway.id } }} castShadow material={doorMat}>
             <boxGeometry args={[doorW, doorH, T]} />
           </mesh>
 
@@ -2621,7 +2692,7 @@ function CabinetMesh({
       {hasDoors && numDoors === 2 && (
         <>
           <group position={[-(doorW / 2 + DOOR_GAP / 2), -PLINTH_H / 2, D / 2 + T / 2]}>
-            <mesh castShadow material={doorMat}>
+            <mesh userData={{ asab: { category: "front", colorwayId: colorway.id } }} castShadow material={doorMat}>
               <boxGeometry args={[doorW, doorH, T]} />
             </mesh>
 
@@ -2654,7 +2725,7 @@ function CabinetMesh({
           </group>
 
           <group position={[doorW / 2 + DOOR_GAP / 2, -PLINTH_H / 2, D / 2 + T / 2]}>
-            <mesh castShadow material={doorMat}>
+            <mesh userData={{ asab: { category: "front", colorwayId: colorway.id } }} castShadow material={doorMat}>
               <boxGeometry args={[doorW, doorH, T]} />
             </mesh>
 
@@ -2764,7 +2835,7 @@ function WorktopMerged({
   return (
     <>
       {(["A", "B", "C", "I", "P"] as const).map((wall) => {
-        const wallCabs = cabinets.filter((c) => c.wall === wall);
+        const wallCabs = cabinets.filter((c) => c.wall === wall && c.placementMode !== "free");
         if (wallCabs.length === 0) return null;
 
         const minX = Math.min(...wallCabs.map((c) => c.xPos));
@@ -2775,6 +2846,7 @@ function WorktopMerged({
         if (wall === "B") {
           return (
             <WorktopBlock
+              name="WORKTOP_B"
               key="wt-B"
               material={mat}
               position={[WORKTOP_Z, WORKTOP_Y + WORKTOP_VISUAL_RAISE, centerX - CORNER_EXT / 2]}
@@ -2788,6 +2860,7 @@ function WorktopMerged({
         if (wall === "C") {
           return (
             <WorktopBlock
+              name="WORKTOP_C"
               key="wt-C"
               material={mat}
               position={[wallA * CM - WORKTOP_Z, WORKTOP_Y + WORKTOP_VISUAL_RAISE, centerX - CORNER_EXT / 2]}
@@ -2802,6 +2875,7 @@ function WorktopMerged({
           const centerZ = ((wallCabs[0]?.zPos ?? 140) * CM);
           return (
             <WorktopBlock
+              name="WORKTOP_I"
               key="wt-I"
               material={mat}
               position={[centerX, WORKTOP_Y + WORKTOP_VISUAL_RAISE, centerZ]}
@@ -2816,6 +2890,7 @@ function WorktopMerged({
           const side = wallCabs[0]?.runSide ?? "right";
           return (
             <WorktopBlock
+              name="WORKTOP_P"
               key="wt-P"
               material={mat}
               position={[side === "left" ? WORKTOP_Z : wallA * CM - WORKTOP_Z, WORKTOP_Y + WORKTOP_VISUAL_RAISE, centerX]}
@@ -2828,6 +2903,7 @@ function WorktopMerged({
 
         return (
           <WorktopBlock
+            name="WORKTOP_A"
             key="wt-A"
             material={mat}
             position={[centerX, WORKTOP_Y + WORKTOP_VISUAL_RAISE, WORKTOP_Z]}
@@ -2842,12 +2918,14 @@ function WorktopMerged({
 }
 
 function WorktopBlock({
+  name,
   material,
   position,
   size,
   edgeColor,
   edgeOpacity,
 }: {
+  name: string;
   material: THREE.Material;
   position: [number, number, number];
   size: [number, number, number];
@@ -2855,7 +2933,7 @@ function WorktopBlock({
   edgeOpacity: number;
 }) {
   return (
-    <group position={position}>
+    <group name={name} userData={{ exportGLB: true, asab: { category: "worktop", run: name.replace("WORKTOP_", "") } }} position={position}>
       <mesh material={material} castShadow receiveShadow>
         <boxGeometry args={size} />
       </mesh>
@@ -2903,7 +2981,7 @@ function RunKickerPlinths({
   const wallAJoinOverlap = 10 * CM;
   const cornerFillerShift = 10 * CM;
   const runCabinets = cabinets.filter(
-    (cabinet) => !["wall", "wall-corner", "wall-hood"].includes(cabinet.type)
+    (cabinet) => cabinet.placementMode !== "free" && !["wall", "wall-corner", "wall-hood"].includes(cabinet.type)
   );
   const hasLeftLRun = !!wallB && cornerSide === "right" && runCabinets.some((cabinet) => cabinet.wall === "B");
   const hasRightLRun = !!wallB && cornerSide === "left" && runCabinets.some((cabinet) => cabinet.wall === "C");
@@ -2981,6 +3059,8 @@ function RunKickerPlinths({
       {strips.map((strip) => (
         <mesh
           key={strip.key}
+          name={strip.key.toUpperCase()}
+          userData={{ exportGLB: true, asab: { category: "plinth", materialId: colorway.plinth, colorwayId: colorway.id } }}
           material={material}
           position={strip.position}
           castShadow
