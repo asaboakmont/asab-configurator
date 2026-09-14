@@ -274,7 +274,7 @@ function ContactInfo() {
 
 function SampleBoxCard() {
   const sampleUrl = "https://shop.asab-design.ro/produs/cutie-mostre/";
-  const sampleImage = "https://asab-design.ro/cdn/shop/files/ChatGPTImageSep23_2025_01_08_56PM.png?v=1758622270&width=1946";
+  const sampleImage = "https://shop.asab-design.ro/wp-content/uploads/2026/09/1.png";
 
   return (
     <section className="overflow-hidden rounded-2xl border border-[#e7dac8] bg-white shadow-sm">
