@@ -273,7 +273,7 @@ function ContactInfo() {
 }
 
 function SampleBoxCard() {
-  const sampleUrl = "https://shop.asab-design.ro/produs/cutie-mostre-fronturi-blaturi-de-bucatarie/bucatarie";
+  const sampleUrl = "https://shop.asab-design.ro/produs/cutie-mostre/";
   const sampleImage = "https://asab-design.ro/cdn/shop/files/ChatGPTImageSep23_2025_01_08_56PM.png?v=1758622270&width=1946";
 
   return (
