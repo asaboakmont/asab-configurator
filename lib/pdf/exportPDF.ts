@@ -1,4 +1,4 @@
-import { CABINET_DISCOUNT } from "@/lib/rules/resolver";
+import { calculateExportPricing } from "@/lib/pricing/exportPricing";
 import jsPDF from "jspdf";
 import { BACKSPLASH_OPTIONS, BUDGET_OPTIONS, DESIGN_COLLECTIONS, FLOOR_TEXTURE_OPTIONS, WALL_COLOR_OPTIONS } from "@/data/designCollections";
 import type { BudgetPreference, Cabinet, Colorway, DesignCollectionId, LayoutType, RoomConstraints, RoomFinishes, WallDimensions } from "@/types/kitchen";
@@ -177,12 +177,7 @@ export async function exportKitchenPDF(opts: PDFExportOptions) {
   if (y > 270) { doc.addPage(); y = 20; }
 
   // Worktop row
-const worktopLengthCm =
-  dimensions.wallA +
-  (layout === "l-shape" ? (dimensions.wallB ?? 0) : 0) +
-  ((layout === "island" || dimensions.hasIsland)
-    ? (dimensions.islandWidth ?? 0)
-    : 0);
+const { cabinetSubtotal, worktopLengthCm, worktopPrice, worktopDescription, total } = calculateExportPricing(cabinets, layout, dimensions);
 
 const worktopLabels: Record<string, { label: string; sku: string }> = {
   stejar: { label: "Blat stejar", sku: "BL-STEJAR" },
@@ -194,34 +189,6 @@ const worktopLabels: Record<string, { label: string; sku: string }> = {
 const worktopItem =
   worktopLabels[colorway.worktop] ?? worktopLabels.stejar;
 
-const FULL_WORKTOP_CM = 410;
-const HALF_WORKTOP_CM = 205;
-const FULL_WORKTOP_PRICE = 740;
-const HALF_WORKTOP_PRICE = 370;
-
-let fullWorktops = Math.floor(worktopLengthCm / FULL_WORKTOP_CM);
-const remaining = worktopLengthCm % FULL_WORKTOP_CM;
-
-let halfWorktops = 0;
-
-if (remaining > 0) {
-  if (remaining <= HALF_WORKTOP_CM) {
-    halfWorktops = 1;
-  } else {
-    fullWorktops++;
-  }
-}
-
-const worktopPrice =
-  fullWorktops * FULL_WORKTOP_PRICE +
-  halfWorktops * HALF_WORKTOP_PRICE;
-
-const worktopDescription = [
-  fullWorktops > 0 ? `${fullWorktops} × 410 cm` : "",
-  halfWorktops > 0 ? `${halfWorktops} × 205 cm` : "",
-]
-  .filter(Boolean)
-  .join(" + ");
 
 doc.setFontSize(8);
 doc.setFont("helvetica", "normal");
@@ -260,11 +227,10 @@ y += 7;
   doc.setTextColor(140, 106, 63);
   
   if (opts.includeCabinetTotal) {
-    const subtotal = cabinets.reduce((sum, cabinet) => sum + (cabinet.price ?? 0), 0);
     const rows: [string, number][] = [
-      ["Subtotal dulapuri", subtotal],
-      [`Reducere dulapuri (${Math.round(CABINET_DISCOUNT * 100)}%)`, -subtotal * CABINET_DISCOUNT],
-      ["TOTAL DULAPURI (fara blat)", Math.round(subtotal * (1 - CABINET_DISCOUNT))],
+      ["Subtotal dulapuri", cabinetSubtotal],
+      ["Blat", worktopPrice],
+      ["TOTAL DULAPURI + BLAT", total],
     ];
     for (const [label, value] of rows) {
       doc.text(label, margin, y);

@@ -394,7 +394,8 @@ export default function StepViewer() {
     setExportError("");
     try {
       const screenshots = await capturePdfRenderViews(setRenderPreset);
-      if (internalRole === "admin" && format === "pptx") {
+      if (format === "pptx") {
+        if (!isInternal) throw new Error("Autentificare interna necesara pentru export PowerPoint.");
         const { exportKitchenPPTX } = await import("@/lib/pptx/exportPPTX");
         await exportKitchenPPTX({ cabinets, colorway, handle: colorway.handle, totalPrice, layout, dimensions, screenshots, contact: { name, email, phone }, collection, roomFinishes });
         return;
@@ -419,7 +420,7 @@ export default function StepViewer() {
         });
         if (res.ok) { const data = await res.json(); cartUrl = data.checkoutUrl; }
       } catch(e) { console.warn("Cart URL failed:", e); }
-      await exportKitchenPDF({ includeCabinetTotal: internalRole === "admin", cabinets: visibleCabinets, colorway, handle: colorway.handle, totalPrice, layout, dimensions, screenshots, cartUrl, contact: { name, phone, email }, constraints: visibleConstraints, collection, roomFinishes });
+      await exportKitchenPDF({ includeCabinetTotal: isInternal, cabinets: visibleCabinets, colorway, handle: colorway.handle, totalPrice, layout, dimensions, screenshots, cartUrl, contact: { name, phone, email }, constraints: visibleConstraints, collection, roomFinishes });
     } catch (error) {
       setExportError(error instanceof Error ? error.message : "Exportul nu a reusit. Incercati din nou.");
     } finally {
@@ -476,7 +477,7 @@ export default function StepViewer() {
       </div>
 
       <div className={adminDesktop ? "admin-inspector" : "contents"}>
-      {internalRole === "admin" && !show2D && (
+      {isInternal && !show2D && (
         <div className={adminDesktop ? "space-y-2" : "absolute top-16 right-4 z-40"}>
           <button disabled={exporting} onClick={() => { setExportFormat("pptx"); void handleExportPDF("", "", "", "pptx"); }} className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold disabled:opacity-50">{exporting ? "Se exporta…" : "Salveaza PowerPoint"}</button>
         </div>

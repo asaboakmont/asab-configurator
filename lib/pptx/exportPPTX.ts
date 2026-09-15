@@ -1,6 +1,6 @@
 import JSZip from "jszip";
 import type { PDFExportOptions } from "@/lib/pdf/exportPDF";
-import { CABINET_DISCOUNT } from "@/lib/rules/resolver";
+import { calculateExportPricing } from "@/lib/pricing/exportPricing";
 
 const A = "http://schemas.openxmlformats.org/drawingml/2006/main";
 const P = "http://schemas.openxmlformats.org/presentationml/2006/main";
@@ -47,8 +47,7 @@ export async function buildKitchenPPTX(template: ArrayBuffer, opts: PDFExportOpt
     Object.entries(values).forEach(([name, value]) => setText(doc, name, value));
     write(path, doc);
   };
-  const subtotal = opts.cabinets.reduce((sum, cabinet) => sum + (cabinet.price ?? 0), 0);
-  const total = Math.round(subtotal * (1 - CABINET_DISCOUNT));
+  const { cabinetSubtotal, worktopPrice, worktopDescription, total } = calculateExportPricing(opts.cabinets, opts.layout, opts.dimensions);
   const project = `ASAB-${new Date().toISOString().slice(0, 10)}`;
   await patch(1, {
     CLIENT: `Client: ${opts.contact?.name || ""}`,
@@ -56,14 +55,14 @@ export async function buildKitchenPPTX(template: ArrayBuffer, opts: PDFExportOpt
     CONSULTANT: "ASAB Design",
   });
   await patch(4, {
-    TITLE: "Pretul dulapurilor",
-    SUBTITLE: "Valoarea corpurilor incluse in configuratie",
-    TERMS_TITLE: "Calcul dulapuri",
-    DELIVERY_LABEL: "Subtotal", DELIVERY: money(subtotal),
-    LEAD_TIME_LABEL: `Reducere ${Math.round(CABINET_DISCOUNT * 100)}%`, LEAD_TIME: money(subtotal * CABINET_DISCOUNT),
+    TITLE: "Dulapuri si blat",
+    SUBTITLE: "Valoarea dulapurilor si a blatului",
+    TERMS_TITLE: "Calcul oferta",
+    DELIVERY_LABEL: "Subtotal dulapuri", DELIVERY: money(cabinetSubtotal),
+    LEAD_TIME_LABEL: "Blat", LEAD_TIME: money(worktopPrice),
     ADVANCE_LABEL: "Numar corpuri", ADVANCE: String(opts.cabinets.length),
-    WORKTOP_LINE: "Blatul nu este inclus in totalul dulapurilor.",
-    TOTAL_LABEL: "TOTAL DULAPURI", GRAND_TOTAL: money(total),
+    WORKTOP_LINE: `Blat inclus: ${worktopDescription || "0 cm"}.`,
+    TOTAL_LABEL: "TOTAL DULAPURI + BLAT", GRAND_TOTAL: money(total),
     TOTAL_NOTE: "Pret estimativ. TVA, transportul si montajul nu sunt incluse.",
   });
 
@@ -80,7 +79,7 @@ export async function buildKitchenPPTX(template: ArrayBuffer, opts: PDFExportOpt
     const doc = parse(listTemplate);
     setText(doc, "PROJECT_ID", `Proiect: ${project}`);
     setText(doc, "SUBTITLE", `${opts.colorway.name} / ${opts.collection ?? "Japandi"}`);
-    setText(doc, "NOTES", "Dimensiuni L x H x A in cm. Preturi inainte de reducere.");
+    setText(doc, "NOTES", "Dimensiuni L x H x A in cm. Preturi dulapuri.");
     for (let i = 0; i < 12; i++) {
       const cabinet = opts.cabinets[page * 12 + i];
       setText(doc, `CABINET_${i + 1}`, cabinet
