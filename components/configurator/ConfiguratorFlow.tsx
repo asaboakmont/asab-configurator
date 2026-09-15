@@ -109,7 +109,7 @@ export default function ConfiguratorFlow() {
       </header>
 
       <div ref={contentRef} className="flex-1 overflow-y-auto">
-        <div className={`max-w-lg w-full mx-auto px-4 py-8 ${internalRole === "admin" && step === "viewer" ? "admin-viewer-shell" : ""}`}>
+        <div className={`max-w-lg w-full mx-auto px-4 py-8 ${internalRole !== null && step === "viewer" ? "admin-viewer-shell" : ""}`}>
           {step === "collection"  && (
             <>
               <StepCollection />

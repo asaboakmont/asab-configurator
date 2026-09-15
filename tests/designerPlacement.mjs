@@ -1,0 +1,28 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import ts from 'typescript';
+// Compile the actual pure placement functions, without mounting the WebGL viewer.
+const source = ts.createSourceFile('viewer.tsx', readFileSync(new URL('../components/viewer/StepViewer.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+const names = ['getEditableWalls', 'editorWallStart', 'editorWallEnd', 'isValidEditorSlot', 'cabinetKey', 'cabinetLayer', 'cabinetYRange', 'rangesOverlap', 'verticalOverlap', 'openingYRange', 'obstructionYRange', 'cabinetFootprint', 'wallCabinetCenter', 'footprintsOverlap'];
+const selected = source.statements.filter(node => ts.isFunctionDeclaration(node) && names.includes(node.name?.text) || ts.isVariableStatement(node) && node.declarationList.declarations.some(d => ['WALL_CAB_TYPES', 'TALL_TYPES'].includes(d.name.getText(source))));
+const code = ts.transpileModule(selected.map(node => node.getText(source)).join('\n'), { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText;
+const rulesSource = readFileSync(new URL('../lib/rules/resolver.ts', import.meta.url), 'utf8');
+const rules = Object.fromEntries(['WALL_DEPTH', 'BASE_DEPTH'].map(key => [key, Number(rulesSource.match(new RegExp(key + ':\\s*(\\d+)'))[1])]));
+const { getEditableWalls, editorWallEnd, isValidEditorSlot } = new Function('RULES', code + '\nreturn {getEditableWalls, editorWallEnd, isValidEditorSlot};')(rules);
+assert.deepEqual(getEditableWalls([], true).map(w => w.id), ['A', 'B', 'C']);
+assert.deepEqual(getEditableWalls([], false).map(w => w.id), ['A']);
+const dimensions = { wallA: 300, wallB: 180 };
+assert.equal(editorWallEnd('B', dimensions, 'linear'), 220);
+assert.equal(editorWallEnd('C', dimensions, 'l-shape'), 180);
+const back = { id: 'back', type: 'base', width: 60, depth: 56, height: 72, wall: 'A', xPos: 0 };
+const left = { ...back, id: 'left', wall: 'B' };
+const right = { ...back, id: 'right', wall: 'C', xPos: 80 };
+const valid = (cabinet, x, others, internal = true, constraints = {}) => isValidEditorSlot(cabinet, x, others, dimensions, 'linear', constraints, internal);
+assert.equal(valid(left, 0, [back]), false, 'perpendicular runs must not overlap');
+assert.equal(valid(left, 80, [back]), true);
+assert.equal(valid(right, 80, [back, { ...left, xPos: 80 }]), true, 'three-wall arrangement fits');
+assert.equal(valid(left, 180, []), false, 'side run cannot exceed room depth');
+assert.equal(valid(left, 0, [back], false), true, 'existing customer rules stay unchanged');
+assert.equal(valid(left, 80, [], true, { openings: [{ wall: 'B', type: 'door', xPos: 80, width: 60, height: 210 }] }), false);
+assert.equal(valid(left, 80, [{ ...left, id: 'free', placementMode: 'free', freePosition: { x: 33, z: 110 }, rotationYDegrees: 90 }]), false);
+console.log('PASS: empty internal walls, U arrangement, room bounds, perpendicular/free collisions and customer rules');

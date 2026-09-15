@@ -40,7 +40,8 @@ export default function StepViewer() {
     query.addEventListener("change", update);
     return () => query.removeEventListener("change", update);
   }, []);
-  const adminDesktop = internalRole === "admin" && desktop;
+  const isInternal = internalRole === "admin" || internalRole === "designer";
+  const adminDesktop = isInternal && desktop;
   const glbExportEnabled = internalRole === "admin" || internalRole === "designer";
   const handleExportGLB = async () => {
     if (!glbExportEnabled) return;
@@ -80,7 +81,7 @@ export default function StepViewer() {
   const [skuNotice, setSkuNotice] = useState("");
   const [addPickerTargetId, setAddPickerTargetId] = useState<string | null>(null);
 
-  const editableWalls = getEditableWalls(cabinets);
+  const editableWalls = getEditableWalls(cabinets, isInternal);
   const activeConstraints = devConstraintsUnlocked ? constraints : undefined;
   const visibleCabinets = React.useMemo(() => show2D
     ? cabinets.filter((cabinet) => cabinet.wall === editWall)
@@ -105,6 +106,33 @@ export default function StepViewer() {
   React.useEffect(() => {
     setAddPickerTargetId(null);
   }, [selectedCabinetKey, editWall]);
+
+  function validEditorSlot(cabinet: Cabinet, xPos: number, allCabinets: Cabinet[], dims: typeof dimensions, activeLayout: string, roomConstraints: RoomConstraints) {
+    return isValidEditorSlot(cabinet, xPos, allCabinets, dims, activeLayout, roomConstraints, isInternal);
+  }
+
+  function moveSelectedCabinetToWall(wall: WallSide) {
+    const cabinet = activeSelectedCabinet;
+    if (!isInternal || !cabinet || cabinet.type.includes("corner") || !editableWalls.some(item => item.id === wall)) return;
+    if (wall === "I" && cabinet.type.startsWith("wall")) {
+      setSkuNotice("Insula nu accepta corpuri suspendate.");
+      return;
+    }
+    const remaining = cabinets.filter(item => cabinetKey(item) !== cabinetKey(cabinet));
+    for (let x = editorWallStart(wall, dimensions, layout); x <= editorWallEnd(wall, dimensions, layout) - cabinet.width; x++) {
+      const moved: Cabinet = {
+        ...cabinet, wall, xPos: x, placementMode: "wall", freePosition: undefined, rotationYDegrees: undefined,
+        zPos: wall === "I" ? (dimensions.islandDistance ?? 100) + (dimensions.islandDepth ?? 90) / 2 : undefined,
+        runSide: wall === "P" ? dimensions.peninsulaSide ?? "right" : undefined,
+      };
+      if (!validEditorSlot(moved, x, remaining, dimensions, layout, activeConstraints ?? {})) continue;
+      commitCabinets([...remaining, moved], moved);
+      setEditWall(wall);
+      setSkuNotice(`${moved.sku} mutat pe ${wall}.`);
+      return;
+    }
+    setSkuNotice("Nu exista spatiu liber pe peretele ales. Mutati sau eliminati un corp.");
+  }
 
   function commitCabinets(newCabinets: Cabinet[], nextSelectedCabinet?: Cabinet | null) {
     const collectionResult = applyCollectionToCabinets(newCabinets, collection);
@@ -150,12 +178,12 @@ export default function StepViewer() {
 
     const nudgedCabinet = { ...cabinet, xPos: cabinet.xPos + 5 * dir };
     const nudgedCabinets = cabinets.map((item) => cabinetKey(item) === cabinetKey(cabinet) ? nudgedCabinet : item);
-    if (isValidEditorSlot(nudgedCabinet, nudgedCabinet.xPos, nudgedCabinets, dimensions, layout, activeConstraints ?? {})) {
+    if (validEditorSlot(nudgedCabinet, nudgedCabinet.xPos, nudgedCabinets, dimensions, layout, activeConstraints ?? {})) {
       commitCabinets(nudgedCabinets, nudgedCabinet);
       return;
     }
 
-    const swapped = swapCabinetWithNeighbor(cabinets, cabinet, dir, dimensions, layout, activeConstraints ?? {});
+    const swapped = swapCabinetWithNeighbor(cabinets, cabinet, dir, dimensions, layout, activeConstraints ?? {}, isInternal);
     if (swapped) commitCabinets(swapped.cabinets, swapped.movedCabinet);
   }
 
@@ -235,7 +263,7 @@ export default function StepViewer() {
 
     const updated = { ...cabinet, placementMode: "wall" as const };
     const candidates = cabinets.map((item) => cabinetKey(item) === cabinetKey(cabinet) ? updated : item);
-    if (!isValidEditorSlot(updated, updated.xPos, candidates, dimensions, layout, activeConstraints ?? {})) {
+    if (!validEditorSlot(updated, updated.xPos, candidates, dimensions, layout, activeConstraints ?? {})) {
       useConfigStore.setState({
         layoutWarnings: ["Pozitia initiala de perete este ocupata. Mutati celelalte corpuri inainte de revenirea la Wall.", ...layoutWarnings],
       });
@@ -278,7 +306,7 @@ export default function StepViewer() {
       label: sku.label,
     }, collection);
 
-    return isValidEditorSlot(draft, draft.xPos, cabinets, dimensions, layout, activeConstraints ?? {})
+    return validEditorSlot(draft, draft.xPos, cabinets, dimensions, layout, activeConstraints ?? {})
       ? draft
       : undefined;
   }
@@ -316,7 +344,7 @@ export default function StepViewer() {
   }
 
   function insertCatalogueSku(sku: SkuDefinition, replace = false) {
-    if (internalRole !== "admin") return;
+    if (!isInternal) return;
     const old = replace ? activeSelectedCabinet : undefined;
     const wall = old?.wall ?? editWall;
     const remaining = old ? cabinets.filter(c => cabinetKey(c) !== cabinetKey(old)) : cabinets;
@@ -337,7 +365,7 @@ export default function StepViewer() {
     const end = old ? start : editorWallEnd(wall, dimensions, layout) - sku.width;
     for (let x = start; x <= end; x += 1) {
       const candidate = { ...draft, xPos: x };
-      if (candidate.placementMode === "free" || isValidEditorSlot(candidate, x, [...remaining, candidate], dimensions, layout, activeConstraints ?? {})) { placed = candidate; break; }
+      if (candidate.placementMode === "free" || validEditorSlot(candidate, x, [...remaining, candidate], dimensions, layout, activeConstraints ?? {})) { placed = candidate; break; }
     }
     if (!placed) { setSkuNotice("Nu exista spatiu suficient. Alegeti alt perete, un corp mai ingust sau inlocuiti un corp selectat."); return; }
     commitCabinets([...remaining, placed], placed);
@@ -454,7 +482,7 @@ export default function StepViewer() {
         </div>
       )}
       {exportError && <div role="alert" className="absolute top-28 inset-x-4 z-50 rounded-xl bg-red-50 p-3 text-sm text-red-700">{exportError}</div>}
-      {internalRole === "admin" && (
+      {isInternal && (
         <details className={adminDesktop ? "admin-sku-picker" : "absolute top-28 right-4 z-40 w-80 max-h-[60vh] overflow-auto rounded-xl bg-white p-3 shadow-lg"} open={adminDesktop}>
           <summary className="cursor-pointer text-sm font-semibold">Catalog {collection} · Adauga corp</summary>
           <div className="space-y-3 pt-3">
@@ -661,6 +689,14 @@ export default function StepViewer() {
             </div>
             {internalRole && !["base-corner", "wall-corner"].includes(activeSelectedCabinet.type) && (
               <div className="border-t border-gray-100 pt-3 space-y-2">
+                <label className="block text-xs font-semibold text-gray-600">
+                  Muta pe perete
+                  <select aria-label="Muta corpul pe perete" value={activeSelectedCabinet.wall}
+                    onChange={event => moveSelectedCabinetToWall(event.target.value as WallSide)}
+                    className="mt-1 w-full rounded-lg border border-gray-200 p-2">
+                    {editableWalls.map(wall => <option key={wall.id} value={wall.id}>{wall.label}</option>)}
+                  </select>
+                </label>
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Placement</p>
                   <div className="flex rounded-xl bg-gray-100 p-1">
@@ -1077,7 +1113,7 @@ function editorWallEnd(
   layout: string
 ): number {
   if (wall === "A") return dimensions.wallA;
-  if ((wall === "B" || wall === "C") && layout === "l-shape") return dimensions.wallB ?? 0;
+  if (wall === "B" || wall === "C") return layout === "l-shape" ? dimensions.wallB ?? 160 : 220;
   if (wall === "I") return dimensions.wallA;
   if (wall === "P") return 100 + (dimensions.peninsulaWidth ?? 0);
   return dimensions.wallA;
@@ -1112,13 +1148,22 @@ function isValidEditorSlot(
   allCabinets: Cabinet[],
   dimensions: any,
   layout: string,
-  constraints: RoomConstraints
+  constraints: RoomConstraints,
+  checkAcrossWalls = false
 ): boolean {
   const min = editorWallStart(cabinet.wall, dimensions, layout);
   const max = editorWallEnd(cabinet.wall, dimensions, layout);
   if (xPos < min || xPos + cabinet.width > max) return false;
 
   const yRange = cabinetYRange(cabinet);
+  if (checkAcrossWalls) {
+    const footprint = cabinetFootprint({ ...cabinet, xPos }, dimensions.wallA);
+    for (const other of allCabinets) {
+      if (cabinetKey(other) === cabinetKey(cabinet)) continue;
+      if (other.wall === cabinet.wall && other.placementMode !== "free") continue;
+      if (verticalOverlap(yRange, cabinetYRange(other)) && footprintsOverlap(footprint, cabinetFootprint(other, dimensions.wallA))) return false;
+    }
+  }
   const layer = cabinetLayer(cabinet);
   const start = xPos;
   const end = xPos + cabinet.width;
@@ -1177,7 +1222,8 @@ function swapCabinetWithNeighbor(
   dir: -1 | 1,
   dimensions: any,
   layout: string,
-  constraints: RoomConstraints
+  constraints: RoomConstraints,
+  checkAcrossWalls = false
 ): { cabinets: Cabinet[]; movedCabinet: Cabinet } | undefined {
   if (cabinet.type === "base-corner" || cabinet.type === "wall-corner") return undefined;
   const layer = layerCabinets(cabinets, cabinet);
@@ -1200,8 +1246,8 @@ function swapCabinetWithNeighbor(
   });
 
   if (
-    isValidEditorSlot(swappedCabinet, swappedCabinet.xPos, swappedCabinets, dimensions, layout, constraints) &&
-    isValidEditorSlot(swappedNeighbor, swappedNeighbor.xPos, swappedCabinets, dimensions, layout, constraints)
+    isValidEditorSlot(swappedCabinet, swappedCabinet.xPos, swappedCabinets, dimensions, layout, constraints, checkAcrossWalls) &&
+    isValidEditorSlot(swappedNeighbor, swappedNeighbor.xPos, swappedCabinets, dimensions, layout, constraints, checkAcrossWalls)
   ) {
     return { cabinets: swappedCabinets, movedCabinet: swappedCabinet };
   }
@@ -1221,7 +1267,7 @@ function filterConstraintsForWall(
   };
 }
 
-function getEditableWalls(cabinets: { wall: WallSide }[]): { id: WallSide; label: string }[] {
+function getEditableWalls(cabinets: { wall: WallSide }[], internal = false): { id: WallSide; label: string }[] {
   const order: WallSide[] = ["A", "B", "C", "I", "P"];
   const labels: Record<WallSide, string> = {
     A: "Perete A",
@@ -1231,7 +1277,7 @@ function getEditableWalls(cabinets: { wall: WallSide }[]): { id: WallSide; label
     P: "Semi-insula",
   };
   const present = new Set(cabinets.map((cab) => cab.wall));
-  const walls = order.filter((wall) => wall === "A" || present.has(wall));
+  const walls = order.filter((wall) => wall === "A" || (internal && (wall === "B" || wall === "C")) || present.has(wall));
   return walls.map((wall) => ({ id: wall, label: labels[wall] }));
 }
 
