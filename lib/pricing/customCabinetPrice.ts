@@ -16,9 +16,11 @@ export function calculateCustomCabinetPrice({
   customWidth,
   pricing,
 }: CustomCabinetPriceInput): CustomCabinetPriceBreakdown {
-  const dimensionalAdjustment = roundRon(
-    ((customWidth - standardWidth) / 100) * pricing.extraWidthPerMeter
-  );
+  if (!Number.isFinite(standardWidth) || standardWidth <= 0 || !Number.isFinite(customWidth) || customWidth <= 0) {
+    throw new Error("Dimensiuni invalide pentru pretul personalizat.");
+  }
+  const widthScale = customWidth / standardWidth;
+  const dimensionalAdjustment = roundRon(standardPrice * (widthScale - 1));
   const customSurcharge = roundRon(
     standardPrice * pricing.customSurchargePercent / 100
   );

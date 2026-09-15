@@ -8,9 +8,11 @@ The export UI is enabled for authenticated `admin` and `designer` sessions, and 
 
 ## Custom cabinets
 
-Cabinets retain their catalog `standardWidth` and SKU while `width` records the final manufactured dimension. Custom widths are rendered with the existing procedural cabinet geometry so panel thickness stays fixed and width-spanning carcass/front parts are rebuilt to the requested size. Imported cabinet GLBs do not expose dependable semantic part names—the carcass is commonly one combined mesh—so custom cabinets intentionally use the parametric fallback rather than stretching detailed hardware and panels. Corner cabinets remain fixed-size in V1.
+Cabinets retain their catalog `standardWidth` and SKU. Custom widths reuse the original GLB with local X scale = requested width / standard width; Y and Z stay unchanged. Width changes preserve the model origin, including rotated walls and free placements. Panel thickness scales along X. Japandi and Franc handles retain their original dimensions around their centres while their placement follows the resized door. Germain handles/gola profiles scale with the cabinet width. Corner resizing remains disabled.
 
-Free-placement cabinets preserve their exact final scene transform in the GLB and include millimetre position and rotation metadata. They use the same parametric geometry fallback as custom-width cabinets so rotation occurs around the cabinet centre. Corner cabinets remain wall-bound in V1. Wall worktops and plinths ignore detached free cabinets; automatic island grouping/worktops are reserved for a later grouped-cabinet implementation.
+Custom prices use the same width ratio: dimensional adjustment = standard price × (width ratio − 1), rounded to RON. The existing production surcharge and minimum price still apply. Custom cabinet labels include `***dimensiune personalizata`, removed when reset to standard width.
+
+Free-placement cabinets use their GLB with the stored rotation and position. Wall worktops and plinths ignore detached free cabinets; automatic island grouping/worktops are reserved for a later implementation.
 
 ## Scene conventions
 

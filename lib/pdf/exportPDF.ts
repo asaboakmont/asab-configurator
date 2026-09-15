@@ -1,4 +1,5 @@
 import { calculateExportPricing } from "@/lib/pricing/exportPricing";
+import { customCabinetLabel } from "@/lib/asab/cabinetSizing";
 import jsPDF from "jspdf";
 import { BACKSPLASH_OPTIONS, BUDGET_OPTIONS, DESIGN_COLLECTIONS, FLOOR_TEXTURE_OPTIONS, WALL_COLOR_OPTIONS } from "@/data/designCollections";
 import type { BudgetPreference, Cabinet, Colorway, DesignCollectionId, LayoutType, RoomConstraints, RoomFinishes, WallDimensions } from "@/types/kitchen";
@@ -154,24 +155,21 @@ export async function exportKitchenPDF(opts: PDFExportOptions) {
   doc.setFont("helvetica", "normal");
   doc.setTextColor(15, 14, 13);
   cabinets.forEach((cab, i) => {
-    if (y > 270) { doc.addPage(); y = 20; }
+    doc.setFontSize(8);
+    const labelLines = doc.splitTextToSize(customCabinetLabel(cab.label ?? cab.sku, !!cab.isCustom), 66);
+    const rowHeight = Math.max(7, labelLines.length * 3.5 + 2);
+    if (y + rowHeight > 274) { doc.addPage(); y = 20; }
     if (i % 2 === 0) {
       doc.setFillColor(250, 248, 244);
-      doc.rect(margin, y - 4, pageW - margin * 2, 7, "F");
+      doc.rect(margin, y - 4, pageW - margin * 2, rowHeight, "F");
     }
     doc.setFontSize(8);
     doc.text(cab.sku,                                    margin + 1,        y);
-    doc.text(
-      cab.isCustom
-        ? `${cab.label ?? cab.sku} (custom; std ${cab.standardWidth ?? cab.width} cm)`
-        : cab.label ?? cab.sku,
-      margin + 22,
-      y
-    );
+    doc.text(labelLines, margin + 22, y);
     doc.text(`${cab.width}x${cab.height}x${cab.depth}`,  margin + 90,       y);
     doc.text(cab.placementMode === "free" ? "LIBER" : cab.wall, margin + 130, y);
     doc.text(cab.price.toLocaleString("ro-RO"),          pageW - margin - 1, y, { align: "right" });
-    y += 7;
+    y += rowHeight;
   });
 
   if (y > 270) { doc.addPage(); y = 20; }

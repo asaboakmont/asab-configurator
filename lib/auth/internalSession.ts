@@ -60,7 +60,7 @@ export function usesInternalCabinetFeatures(value: unknown): boolean {
   return cabinets.some((cabinet) => {
     if (!cabinet || typeof cabinet !== "object") return false;
     const item = cabinet as Record<string, unknown>;
-    return item.isCustom === true ||
+    return !!item.catalogProduct || item.isCustom === true ||
       item.placementMode === "free" ||
       (typeof item.standardWidth === "number" && typeof item.width === "number" && item.standardWidth !== item.width);
   });

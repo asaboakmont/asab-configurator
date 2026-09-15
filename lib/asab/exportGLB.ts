@@ -10,6 +10,7 @@ export function cabinetExportData(cabinet: Cabinet & { id?: string }, colorway: 
   const isFree = cabinet.placementMode === 'free';
   return { exportGLB: true, asab: {
     asabType: 'cabinet', category: 'cabinet', cabinetId: cabinet.id ?? `${cabinet.sku}-${cabinet.wall}-${cabinet.type}-${cabinet.xPos}-${cabinet.zPos ?? 0}`,
+    catalogCollection: cabinet.catalogProduct?.collectionId,
     cabinetType: cabinet.type, sku: cabinet.sku, baseSku: cabinet.baseSku,
     standardWidth: cabinet.standardWidth ?? cabinet.width,
     width: cabinet.width,

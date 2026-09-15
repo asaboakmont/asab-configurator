@@ -83,7 +83,7 @@ export async function buildKitchenPPTX(template: ArrayBuffer, opts: PDFExportOpt
     for (let i = 0; i < 12; i++) {
       const cabinet = opts.cabinets[page * 12 + i];
       setText(doc, `CABINET_${i + 1}`, cabinet
-        ? `${page * 12 + i + 1}. ${cabinet.sku} / ${cabinet.width}x${cabinet.height}x${cabinet.depth} / ${cabinet.placementMode === "free" ? "Liber" : cabinet.wall} / ${money(cabinet.price ?? 0)}`
+        ? `${page * 12 + i + 1}. ${cabinet.sku}${cabinet.isCustom ? " ***dimensiune personalizata" : ""} / ${cabinet.width}x${cabinet.height}x${cabinet.depth} / ${cabinet.placementMode === "free" ? "Liber" : cabinet.wall} / ${money(cabinet.price ?? 0)}`
         : "");
     }
     write(`ppt/slides/slide${number}.xml`, doc);

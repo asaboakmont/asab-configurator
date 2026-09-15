@@ -113,6 +113,7 @@ export default function ConfiguratorFlow() {
           {step === "collection"  && (
             <>
               <StepCollection />
+              {internalRole === "admin" && <a href="/admin/catalog" className="mt-4 block text-center text-sm underline">Administreaza catalogul</a>}
               {!internalRole && (
                 <button
                   type="button"

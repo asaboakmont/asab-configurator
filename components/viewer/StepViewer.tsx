@@ -1,5 +1,8 @@
 "use client";
+import { resizeCabinetAtOrigin } from "@/lib/asab/cabinetSizing";
 import React from "react";
+import InternalCatalog from "./InternalCatalog";
+import type { CatalogProduct } from "@/lib/catalog/schema";
 import type { Scene } from "three";
 import { downloadKitchenGLB } from "@/lib/asab/exportGLB";
 import { Suspense, useState } from "react";
@@ -208,16 +211,18 @@ export default function StepViewer() {
     if (Math.abs(delta) < 0.0001) return;
 
     const standardWidth = cabinet.standardWidth ?? getSkuByCode(cabinet.sku)?.width ?? cabinet.width;
-    const resized = { ...cabinet, width: nextWidth, standardWidth, isCustom: nextWidth !== standardWidth };
+    const resized = resizeCabinetAtOrigin(cabinet, nextWidth, standardWidth);
+    const growsBackwards = cabinet.wall === "B" || (cabinet.wall === "P" && cabinet.runSide === "left");
     const shifted = cabinets.map((item) => {
       if (cabinetKey(item) === cabinetKey(cabinet)) return resized;
       if (
+        cabinet.placementMode !== "free" &&
         item.placementMode !== "free" &&
         item.wall === cabinet.wall &&
         cabinetLayer(item) === cabinetLayer(cabinet) &&
-        item.xPos > cabinet.xPos
+        (growsBackwards ? item.xPos < cabinet.xPos : item.xPos > cabinet.xPos)
       ) {
-        return { ...item, xPos: item.xPos + delta };
+        return { ...item, xPos: item.xPos + (growsBackwards ? -delta : delta) };
       }
       return item;
     });
@@ -349,7 +354,7 @@ export default function StepViewer() {
     const wall = old?.wall ?? editWall;
     const remaining = old ? cabinets.filter(c => cabinetKey(c) !== cabinetKey(old)) : cabinets;
     const draft = applyCollectionToCabinet({
-      id: old?.id ?? crypto.randomUUID(), sku: sku.sku, type: sku.type,
+      id: old?.id ?? crypto.randomUUID(), sku: sku.sku, type: sku.type, catalogProduct: sku.catalogProduct,
       width: sku.width, height: sku.height, depth: sku.depth, label: sku.label, price: sku.price,
       wall, xPos: old?.xPos ?? editorWallStart(wall, dimensions, layout), cornerSide: sku.cornerSide,
       zPos: wall === "I" ? (dimensions.islandDistance ?? 100) + (dimensions.islandDepth ?? 90) / 2 : undefined,
@@ -371,6 +376,15 @@ export default function StepViewer() {
     commitCabinets([...remaining, placed], placed);
     setEditWall(wall); setShow2D(true); setFinishPicker(null);
     setSkuNotice(`${placed.sku} ${replace ? "inlocuit" : "adaugat"}.`);
+  }
+  function addImportedProduct(product: CatalogProduct) {
+    if (!isInternal) return;
+    const sku: SkuDefinition = { sku: product.sku, label: product.name, price: product.price, width: product.widthMm / 10, height: product.heightMm / 10, depth: product.depthMm / 10, type: product.category, catalogProduct: product };
+    if (product.category === "panel" || product.category === "accessory") {
+      const cabinet = applyCollectionToCabinet({ ...sku, id: crypto.randomUUID(), wall: editWall, xPos: 0, placementMode: "free", freePosition: { x: dimensions.wallA / 2, z: (dimensions.wallB ?? 220) / 2 }, rotationYDegrees: 0 }, collection);
+      commitCabinets([...cabinets, cabinet], cabinet);
+      setShow2D(true); setSkuNotice(`${product.name} adaugat in camera. Folositi pozitionarea libera.`);
+    } else insertCatalogueSku(sku);
   }
   const catalogueMatches = ALL_SKUS.filter(sku => {
     const category = sku.type.startsWith("wall") ? "wall" : sku.type.startsWith("tall") ? "tall" : "base";
@@ -483,6 +497,7 @@ export default function StepViewer() {
         </div>
       )}
       {exportError && <div role="alert" className="absolute top-28 inset-x-4 z-50 rounded-xl bg-red-50 p-3 text-sm text-red-700">{exportError}</div>}
+      {isInternal && <div className={adminDesktop ? "" : "absolute top-40 right-4 z-40 w-80 max-h-[45vh] overflow-auto"}><InternalCatalog admin={internalRole === "admin"} onAdd={addImportedProduct} /></div>}
       {isInternal && (
         <details className={adminDesktop ? "admin-sku-picker" : "absolute top-28 right-4 z-40 w-80 max-h-[60vh] overflow-auto rounded-xl bg-white p-3 shadow-lg"} open={adminDesktop}>
           <summary className="cursor-pointer text-sm font-semibold">Catalog {collection} · Adauga corp</summary>
@@ -785,6 +800,7 @@ export default function StepViewer() {
                 {activeSelectedCabinet.customPriceBreakdown && (
                   <div className="grid grid-cols-2 gap-x-3 gap-y-1 rounded-xl bg-gray-50 p-3 text-[11px]">
                     <span className="text-gray-500">Pret standard</span><span className="text-right font-semibold">{activeSelectedCabinet.customPriceBreakdown.standardPrice.toLocaleString("ro-RO")} RON</span>
+                    <span className="text-gray-500">Factor latime</span><span className="text-right font-semibold">{activeSelectedCabinet.width} / {activeSelectedCabinet.standardWidth} = {(activeSelectedCabinet.width / (activeSelectedCabinet.standardWidth ?? activeSelectedCabinet.width)).toFixed(3)}</span>
                     <span className="text-gray-500">Ajustare dimensiune</span><span className="text-right font-semibold">{formatSignedRon(activeSelectedCabinet.customPriceBreakdown.dimensionalAdjustment)}</span>
                     <span className="text-gray-500">Suprataxa productie</span><span className="text-right font-semibold">{formatSignedRon(activeSelectedCabinet.customPriceBreakdown.customSurcharge)}</span>
                     <span className="font-bold text-gray-900">Pret custom</span><span className="text-right font-bold text-gray-900">{activeSelectedCabinet.customPriceBreakdown.finalPrice.toLocaleString("ro-RO")} RON</span>
@@ -860,7 +876,7 @@ export default function StepViewer() {
                     <p className="text-xs text-gray-400">{cabinet.width} cm latime</p>
                   </div>
                   <span className="text-xs font-semibold text-gray-600 shrink-0">
-                    {(getSkuByCode(cabinet.sku)?.price ?? cabinet.price ?? 0).toLocaleString("ro-RO")} RON
+                    {(cabinet.price ?? getSkuByCode(cabinet.sku)?.price ?? 0).toLocaleString("ro-RO")} RON
                   </span>
                 </button>
               ))}

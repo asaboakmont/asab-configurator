@@ -25,10 +25,10 @@ try {
     standardPrice: 500,
     standardWidth: 60,
     customWidth: 73.4,
-    dimensionalAdjustment: 47,
+    dimensionalAdjustment: 112,
     customSurcharge: 75,
     minimumPrice: 450,
-    finalPrice: 622,
+    finalPrice: 687,
   });
 
   assert.equal(calculateCustomCabinetPrice({

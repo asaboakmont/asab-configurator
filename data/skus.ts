@@ -1,7 +1,9 @@
+import { customCabinetLabel } from "@/lib/asab/cabinetSizing";
 import type { Cabinet, CabinetType, CustomCabinetPricing, DesignCollectionId } from "@/types/kitchen";
 import { calculateCustomCabinetPrice } from "@/lib/pricing/customCabinetPrice";
 
 export interface SkuDefinition {
+  catalogProduct?: import("@/lib/catalog/schema").CatalogProduct;
   sku:         string;
   type:        CabinetType;
   width:       number;
@@ -106,6 +108,13 @@ export function toCollectionSku(sku: string, collection: DesignCollectionId): st
 }
 
 export function applyCollectionToCabinet(cabinet: Cabinet, collection: DesignCollectionId): Cabinet {
+  if (cabinet.catalogProduct) {
+    const standardWidth = cabinet.catalogProduct.widthMm / 10;
+    const standardPrice = cabinet.catalogProduct.price;
+    const isCustom = cabinet.width !== standardWidth;
+    const customPriceBreakdown = isCustom ? calculateCustomCabinetPrice({ standardPrice, standardWidth, customWidth: cabinet.width, pricing: customPricingForType(cabinet.type) }) : undefined;
+    return { ...cabinet, standardWidth, standardPrice, isCustom, customPriceBreakdown, label: customCabinetLabel(cabinet.catalogProduct.name, isCustom), price: customPriceBreakdown?.finalPrice ?? standardPrice };
+  }
   const baseSku = cabinet.baseSku ?? stripCollectionSku(cabinet.sku);
   const nextSku = toCollectionSku(baseSku, collection);
   const definition = getSkuByCode(nextSku);
@@ -130,6 +139,7 @@ export function applyCollectionToCabinet(cabinet: Cabinet, collection: DesignCol
     standardWidth,
     standardPrice,
     isCustom,
+    label: customCabinetLabel(cabinet.label ?? definition?.label ?? baseSku, isCustom),
     customPriceBreakdown,
     price: customPriceBreakdown?.finalPrice ?? standardPrice,
   };

@@ -77,9 +77,11 @@ export type CabinetType =
   | "base" | "base-corner" | "base-sink" | "base-hob"
   | "base-oven" | "base-drawer" | "base-dishwasher"
   | "wall" | "wall-corner" | "wall-hood"
-  | "tall" | "tall-oven" | "tall-fridge";
+  | "tall" | "tall-oven" | "tall-fridge"
+  | "panel" | "accessory";
 
 export interface Cabinet {
+  catalogProduct?: import("@/lib/catalog/schema").CatalogProduct;
   id?: string;
   sku:    string;
   baseSku?: string;

@@ -1,4 +1,5 @@
 "use client";
+import ImportedCabinetModel from "./ImportedCabinetModel";
 import React, { useMemo } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { ContactShadows, Html, OrbitControls, SoftShadows } from "@react-three/drei";
@@ -7,7 +8,9 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { Cabinet, Colorway, DesignCollectionId, Obstruction, RoomConstraints, RoomFinishes, RoomWall, WallSide } from "@/types/kitchen";
 import { cabinetExportData, cabinetObjectName } from "@/lib/asab/exportGLB";
 import { RULES } from "@/lib/rules/resolver";
-import { stripCollectionSku } from "@/data/skus";
+import { handleScaleCompensation } from "@/lib/asab/handleScaling";
+import { cabinetWidthScale } from "@/lib/asab/cabinetSizing";
+import { getSkuByCode, stripCollectionSku } from "@/data/skus";
 
 interface KitchenSceneProps {
   onSceneReady?: (scene: THREE.Scene | null) => void;
@@ -1850,6 +1853,8 @@ function CabinetMeshGLB({
 
   if (meshes.length === 0) return null;
 
+  const standardWidth = cabinet.standardWidth ?? getSkuByCode(cabinet.sku)?.width ?? cabinet.width;
+  const widthScale = cabinetWidthScale(cabinet.width, standardWidth);
   const mirrorDoor = doorDirection === "D";
   const isCorner = cabinet.type === "base-corner" || cabinet.type === "wall-corner";
   const shouldFlattenChildRotations = !isCorner && cabinet.wall !== "A" && cabinet.wall !== "I";
@@ -1858,7 +1863,7 @@ function CabinetMeshGLB({
     shouldFlattenChildRotations && !shouldPreserveChildRotation(mesh) ? [0, 0, 0] as [number, number, number] : mesh.rotation;
 
   return (
-    <group name={cabinetObjectName(cabinet)} userData={cabinetExportData(cabinet, colorway, collection)} position={[posX, posY, posZ]} rotation={[0, rotY, 0]}>
+    <group name={cabinetObjectName(cabinet)} userData={cabinetExportData(cabinet, colorway, collection)} position={[posX, posY, posZ]} rotation={[0, rotY, 0]} scale={[widthScale, 1, 1]}>
       {(() => {
         const nonDoorMeshes = meshes.filter((m) => !["door", "handle"].includes(m.matName));
         const doorMeshes = meshes.filter((m) => ["door", "handle"].includes(m.matName));
@@ -1896,15 +1901,19 @@ function CabinetMeshGLB({
               const meshPosition: [number, number, number] = isHandle
                 ? [m.position[0], m.position[1], m.position[2] + GLB_HANDLE_FORWARD_OFFSET]
                 : m.position;
+              const compensation = isHandle
+                ? handleScaleCompensation(m.geometry, meshPosition, childRotation(m), [m.scale[0] * 10, m.scale[1] * 10, m.scale[2] * 10], widthScale, collection)
+                : { position: [0, 0, 0] as [number, number, number], scale: [1, 1, 1] as [number, number, number] };
               return (
                 <group
                   key={`d-${i}`}
                   scale={mirrorDoor && isHandle ? [-1, 1, 1] : [1, 1, 1]}
                   position={[
-                    mirrorDoor && isHandle ? (cabinet.width * CM) : 0,
+                    mirrorDoor && isHandle ? (standardWidth * CM) : 0,
                     0, 0
                   ]}
                 >
+                  <group position={compensation.position} scale={compensation.scale}>
                   <mesh
                     userData={{ asab: { category: isHandle ? "handle" : "front", materialId: m.matName, colorwayId: colorway.id } }}
                     geometry={m.geometry}
@@ -1917,6 +1926,7 @@ function CabinetMeshGLB({
                     frustumCulled={false}
                     renderOrder={isHandle ? HANDLE_RENDER_ORDER : 1}
                   />
+                  </group>
                   {!isHandle && (
                     <MeshEdgeLines
                       geometry={m.geometry}
@@ -2501,11 +2511,12 @@ function CabinetMesh({
       onRemoveSelected={onRemoveSelected}
     />
   ) : null;
+  if (cabinet.catalogProduct) {
+    return <>{selectionOverlay}<ImportedCabinetModel cabinet={cabinet} colorway={colorway} collection={collection} position={[posX, posY, posZ]} rotationY={rotY} /></>;
+  }
   const BROKEN_SKUS: string[] = [];
 
   const hasModel =
-    !cabinet.isCustom &&
-    cabinet.placementMode !== "free" &&
     MODEL_SKUS.includes(cabinet.baseSku ?? stripCollectionSku(cabinet.sku)) &&
     !BROKEN_SKUS.includes(cabinet.baseSku ?? stripCollectionSku(cabinet.sku));
 
@@ -2526,7 +2537,9 @@ function CabinetMesh({
     const WALL_OFFSET = isWallCab ? 0 * CM : 5.0 * CM;
 
     if (cabinet.placementMode === "free") {
-      // Free-placement models use the exact center transform calculated above.
+      // Rotate the native lower-left origin offset around the stored centre.
+      glbPosX = posX - Math.cos(rotY) * glbWidth / 2 - Math.sin(rotY) * glbDepth / 2;
+      glbPosZ = posZ + Math.sin(rotY) * glbWidth / 2 - Math.cos(rotY) * glbDepth / 2;
     } else if (isCorner) {
       const off = type === "base-corner" ? RULES.CORNER_BASE_OFFSET * CM : 0;
       if (cabinet.wall === "B") {
