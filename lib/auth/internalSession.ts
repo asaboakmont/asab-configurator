@@ -32,12 +32,13 @@ export function createInternalSession(role: InternalRole): string {
 export function getInternalRole(request: NextRequest): InternalRole | null {
   const token = request.cookies.get(INTERNAL_SESSION_COOKIE)?.value;
   if (!token) return null;
-  const [encoded, signature] = token.split(".");
-  if (!encoded || !signature || !safeEqual(signature, sign(encoded))) return null;
+  const [encoded, signature, extra] = token.split(".");
+  if (!encoded || !signature || extra !== undefined) return null;
 
   try {
+    if (!safeEqual(signature, sign(encoded))) return null;
     const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as SessionPayload;
-    if (!normalizeRole(payload.role) || payload.expiresAt <= Date.now()) return null;
+    if (!normalizeRole(payload.role) || typeof payload.expiresAt !== "number" || !Number.isFinite(payload.expiresAt) || payload.expiresAt <= Date.now()) return null;
     return payload.role;
   } catch {
     return null;

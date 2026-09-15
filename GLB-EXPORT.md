@@ -4,7 +4,7 @@ The viewer's **Export GLB** button downloads the live R3F scene as a binary `ASA
 
 ## Developer enablement
 
-The export UI and its handler are enabled only when `NEXT_PUBLIC_ENABLE_GLB_EXPORT` is exactly `true` and the server has verified an `admin` or `designer` session. Credentials and the signed-session secret come from `ASAB_ADMIN_PASSWORD`, `ASAB_DESIGNER_PASSWORD`, and `ASAB_INTERNAL_SESSION_SECRET`. Set strong values in deployment. Next.js embeds the public GLB flag at build time, so restart development or rebuild after changing it.
+The export UI is enabled for authenticated `admin` and `designer` sessions, and export rechecks the server session before downloading. No public feature flag is required. Credentials and the signed-session secret come from `ASAB_ADMIN_PASSWORD`, `ASAB_DESIGNER_PASSWORD`, and `ASAB_INTERNAL_SESSION_SECRET`. Set strong values in deployment. Internal users can generate/save configurations and export documents without customer contact popups; customer email and phone requirements remain unchanged.
 
 ## Custom cabinets
 

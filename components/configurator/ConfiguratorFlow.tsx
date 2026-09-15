@@ -39,10 +39,28 @@ export default function ConfiguratorFlow() {
   const stepIndex = Math.max(0, STEPS.findIndex((s) => s.id === step));
 
   React.useEffect(() => {
-    fetch("/api/internal/session", { cache: "no-store" })
-      .then((response) => response.json())
-      .then((data) => setInternalRole(data.role === "admin" || data.role === "designer" ? data.role : null))
-      .catch(() => setInternalRole(null));
+    let active = true;
+    let revision = 0;
+    const refresh = async () => {
+      const current = ++revision;
+      const previousRole = useConfigStore.getState().internalRole;
+      let role: "admin" | "designer" | null = null;
+      try {
+        const response = await fetch("/api/internal/session", { cache: "no-store" });
+        const data = await response.json();
+        if (response.ok && (data.role === "admin" || data.role === "designer")) role = data.role;
+      } catch {}
+      // A completed login takes precedence over an older session lookup.
+      if (active && current === revision && useConfigStore.getState().internalRole === previousRole) setInternalRole(role);
+    };
+    void refresh();
+    window.addEventListener("focus", refresh);
+    const interval = window.setInterval(refresh, 60_000);
+    return () => {
+      active = false;
+      window.removeEventListener("focus", refresh);
+      window.clearInterval(interval);
+    };
   }, [setInternalRole]);
 
   React.useEffect(() => {

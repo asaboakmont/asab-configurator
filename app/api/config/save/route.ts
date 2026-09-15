@@ -9,6 +9,7 @@ import {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    const internalRole = getInternalRole(req);
 
     const name =
       typeof body.name === "string" && body.name.trim()
@@ -25,11 +26,11 @@ export async function POST(req: NextRequest) {
         ? body.phone.trim()
         : "";
 
-    if (
+    if (!internalRole && (
       !email ||
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
       !phone
-    ) {
+    )) {
       return NextResponse.json(
         { error: "Emailul si telefonul sunt obligatorii." },
         { status: 400 }
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
     // can only be saved by an authenticated internal user.
     if (
       usesInternalCabinetFeatures(config) &&
-      !getInternalRole(req)
+      !internalRole
     ) {
       return NextResponse.json(
         {
@@ -105,6 +106,9 @@ export async function POST(req: NextRequest) {
       "https://configurator.asab-design.ro";
 
     const url = `${siteUrl}/?config=${encodeURIComponent(id)}`;
+
+    // Internal saves need a share link, without creating a customer lead email.
+    if (internalRole) return NextResponse.json({ id, url });
 
     const apiKey = process.env.RESEND_API_KEY;
 

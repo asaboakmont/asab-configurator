@@ -8,7 +8,7 @@ import {
 } from "@/lib/auth/internalSession";
 
 export async function GET(request: NextRequest) {
-  return NextResponse.json({ role: getInternalRole(request) });
+  return NextResponse.json({ role: getInternalRole(request) }, { headers: { "Cache-Control": "private, no-store" } });
 }
 
 export async function POST(request: NextRequest) {

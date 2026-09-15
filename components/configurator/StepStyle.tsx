@@ -5,7 +5,7 @@ import { COLORWAYS, WORKTOP_OPTIONS, HANDLE_OPTIONS } from "@/data/colorways";
 import type { WorktopStyle } from "@/types/kitchen";
 
 export default function StepStyle() {
-  const { collection, colorway, setColorway, setStep, setContact, setShareUrl, generate } = useConfigStore();
+  const { internalRole, collection, colorway, setColorway, setStep, setContact, setShareUrl, generate } = useConfigStore();
   const [finishFilter, setFinishFilter] = useState<"mat" | "lucios">("mat");
   const [showCapture, setShowCapture] = useState(false);
   const [captureName, setCaptureName] = useState("");
@@ -18,6 +18,28 @@ export default function StepStyle() {
       setFinishFilter("mat");
     }
   }, [collection, finishFilter]);
+
+  const generateAndSave = (name = "", email = "", phone = "") => {
+    generate();
+
+    const { collection, budget, roomFinishes, layout, dimensions, appliances, colorway: selectedColorway, cabinets, totalPrice, constraints } = useConfigStore.getState();
+    fetch("/api/config/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        config: { collection, budget, roomFinishes, layout, dimensions, appliances, colorway: selectedColorway, cabinets, totalPrice, constraints },
+        name,
+        email,
+        phone,
+      }),
+    })
+      .then((response) => (response.ok ? response.json() : undefined))
+      .then((data) => {
+        if (data?.url) setShareUrl(data.url);
+      })
+      .catch(() => {});
+
+  };
 
   const updateWorktop = (worktopId: string) => {
     const opt = WORKTOP_OPTIONS.find(w => w.id === worktopId);
@@ -152,13 +174,13 @@ export default function StepStyle() {
           className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:border-gray-400 transition-all">
           ← Inapoi
         </button>
-        <button onClick={() => setShowCapture(true)}
+        <button onClick={() => internalRole ? generateAndSave() : setShowCapture(true)}
           className="flex-[2] py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition-all">
           Genereaza bucataria →
         </button>
       </div>
 
-      {showCapture && (
+      {showCapture && !internalRole && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <form
             onSubmit={(event) => {
@@ -170,24 +192,7 @@ export default function StepStyle() {
               if (!email || !phone) return;
 
               setContact({ name, email, phone });
-              generate();
-
-              const { collection, budget, roomFinishes, layout, dimensions, appliances, colorway: selectedColorway, cabinets, totalPrice, constraints } = useConfigStore.getState();
-              fetch("/api/config/save", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  config: { collection, budget, roomFinishes, layout, dimensions, appliances, colorway: selectedColorway, cabinets, totalPrice, constraints },
-                  name,
-                  email,
-                  phone,
-                }),
-              })
-                .then((response) => (response.ok ? response.json() : undefined))
-                .then((data) => {
-                  if (data?.url) setShareUrl(data.url);
-                })
-                .catch(() => {});
+              generateAndSave(name, email, phone);
 
               setShowCapture(false);
             }}

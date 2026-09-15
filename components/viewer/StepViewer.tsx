@@ -41,7 +41,7 @@ export default function StepViewer() {
     return () => query.removeEventListener("change", update);
   }, []);
   const adminDesktop = internalRole === "admin" && desktop;
-  const glbExportEnabled = internalRole !== null && process.env.NEXT_PUBLIC_ENABLE_GLB_EXPORT === "true";
+  const glbExportEnabled = internalRole === "admin" || internalRole === "designer";
   const handleExportGLB = async () => {
     if (!glbExportEnabled) return;
     if (!liveScene || glbBusy.current) return;
@@ -52,6 +52,7 @@ export default function StepViewer() {
       const accessResponse = await fetch("/api/internal/session", { cache: "no-store" });
       const access = await accessResponse.json().catch(() => ({}));
       if (!accessResponse.ok || (access.role !== "admin" && access.role !== "designer")) {
+        useConfigStore.getState().setInternalRole(null);
         throw new Error("Sesiunea interna a expirat. Autentificati-va din nou.");
       }
       await downloadKitchenGLB(liveScene);
@@ -360,12 +361,12 @@ export default function StepViewer() {
         }
       : { background: worktop.hex };
 
-  const handleExportPDF = async (name = "", email = "", phone = "") => {
+  const handleExportPDF = async (name = "", email = "", phone = "", format = exportFormat) => {
     setExporting(true);
     setExportError("");
     try {
       const screenshots = await capturePdfRenderViews(setRenderPreset);
-      if (internalRole === "admin" && exportFormat === "pptx") {
+      if (internalRole === "admin" && format === "pptx") {
         const { exportKitchenPPTX } = await import("@/lib/pptx/exportPPTX");
         await exportKitchenPPTX({ cabinets, colorway, handle: colorway.handle, totalPrice, layout, dimensions, screenshots, contact: { name, email, phone }, collection, roomFinishes });
         return;
@@ -449,7 +450,7 @@ export default function StepViewer() {
       <div className={adminDesktop ? "admin-inspector" : "contents"}>
       {internalRole === "admin" && !show2D && (
         <div className={adminDesktop ? "space-y-2" : "absolute top-16 right-4 z-40"}>
-          <button disabled={exporting} onClick={() => { setExportFormat("pptx"); setPdfModalOpen(true); }} className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold disabled:opacity-50">{exporting ? "Se exporta…" : "Salveaza PowerPoint"}</button>
+          <button disabled={exporting} onClick={() => { setExportFormat("pptx"); void handleExportPDF("", "", "", "pptx"); }} className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold disabled:opacity-50">{exporting ? "Se exporta…" : "Salveaza PowerPoint"}</button>
         </div>
       )}
       {exportError && <div role="alert" className="absolute top-28 inset-x-4 z-50 rounded-xl bg-red-50 p-3 text-sm text-red-700">{exportError}</div>}
@@ -603,7 +604,7 @@ export default function StepViewer() {
               </>
             )}
             <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => { setExportFormat("pdf"); setPdfModalOpen(true); }} disabled={exporting}
+              <button onClick={() => { setExportFormat("pdf"); if (glbExportEnabled) void handleExportPDF("", "", "", "pdf"); else setPdfModalOpen(true); }} disabled={exporting}
                 className="py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600">
                 {exporting ? "PDF..." : "Salveaza PDF"}
               </button>
@@ -833,7 +834,7 @@ export default function StepViewer() {
 
       </div>
 
-      {pdfModalOpen && (
+      {pdfModalOpen && !glbExportEnabled && (
         <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm space-y-4">
             <h2 className="text-base font-semibold text-gray-900">{exportFormat === "pptx" ? "Salveaza PowerPoint" : "Salveaza PDF"}</h2>
