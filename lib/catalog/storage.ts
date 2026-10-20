@@ -8,7 +8,7 @@ function redis() {
 export async function readCatalog(): Promise<Catalog> { return await redis().get<Catalog>(KEY) ?? structuredClone(EMPTY_CATALOG); }
 export async function writeCatalog(catalog: Catalog, expectedRevision: number) {
   const next = { ...catalog, revision: expectedRevision + 1 };
-  const result = await redis().eval<number>(`
+  const result = await redis().eval<[number, string], number>(`
     local current = redis.call('GET', KEYS[1])
     local revision = 0
     if current then revision = cjson.decode(current).revision end
@@ -23,7 +23,7 @@ export async function writeCatalog(catalog: Catalog, expectedRevision: number) {
 const ASSETS = "asab:catalog:assets:v1";
 export async function registerAsset(url: string) { await redis().hset(ASSETS, { [url]: true }); }
 export async function checkAssets(urls: string[]) {
-  const unique = [...new Set(urls.filter(Boolean))];
+  const unique = Array.from(new Set(urls.filter(Boolean)));
   if (!unique.length) return;
   const registered = await redis().hmget<Record<string, boolean>>(ASSETS, ...unique);
   if (unique.some(url => !registered?.[url])) throw new Error("Un GLB nu a fost verificat. Incarcati fisierul prin pagina catalogului.");

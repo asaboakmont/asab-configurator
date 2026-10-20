@@ -71,7 +71,7 @@ export function mergeProducts(catalog: Catalog, rows: unknown[]): CatalogProduct
   const products = new Map(catalog.products.map(p => [productKey(p), p]));
   parsed.forEach(p => products.set(productKey(p), p));
   if (products.size > 5000) throw new Error("Limita catalog: 5000 produse.");
-  return [...products.values()];
+  return Array.from(products.values());
 }
 
 export const catalogModelPath = (url: string) => `/api/internal/catalog/model?url=${encodeURIComponent(url)}`;

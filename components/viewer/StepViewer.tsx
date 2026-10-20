@@ -71,6 +71,8 @@ export default function StepViewer() {
   const [show2D,       setShow2D]       = useState(false);
   const [editWall,     setEditWall]     = useState<WallSide>("A");
   const [exportError, setExportError] = useState("");
+  const [pptxDownload, setPptxDownload] = useState<{ url: string; filename: string } | null>(null);
+  React.useEffect(() => () => { if (pptxDownload) URL.revokeObjectURL(pptxDownload.url); }, [pptxDownload]);
   const [exportFormat, setExportFormat] = useState<"pdf" | "pptx">("pdf");
   const [pdfModalOpen, setPdfModalOpen] = useState(false);
   const [pdfName,      setPdfName]      = useState("");
@@ -79,6 +81,7 @@ export default function StepViewer() {
   const [renderPreset, setRenderPreset] = useState<RenderCameraPreset>("interactive");
   const [selectedCabinetKey, setSelectedCabinetKey] = useState<string | null>(null);
   const [customWidthMm, setCustomWidthMm] = useState("");
+  const [resizeError, setResizeError] = useState("");
   const [skuSearch, setSkuSearch] = useState("");
   const [skuCategory, setSkuCategory] = useState("all");
   const [skuNotice, setSkuNotice] = useState("");
@@ -157,6 +160,7 @@ export default function StepViewer() {
   const activeSelectedCabinet = selectedCabinet();
 
   React.useEffect(() => {
+    setResizeError("");
     setCustomWidthMm(activeSelectedCabinet ? String(Math.round(activeSelectedCabinet.width * 10)) : "");
   }, [activeSelectedCabinet]);
 
@@ -202,7 +206,9 @@ export default function StepViewer() {
 
   function setSelectedCabinetWidth(widthMm: number) {
     const cabinet = activeSelectedCabinet;
-    if (!cabinet || !internalRole || !Number.isFinite(widthMm)) return;
+    setResizeError("");
+    if (!cabinet || !internalRole) return;
+    if (!Number.isFinite(widthMm) || widthMm < 200 || widthMm > 1200) { setResizeError("Introduceti o latime intre 200 si 1200 mm."); return; }
     if (cabinet.type === "base-corner" || cabinet.type === "wall-corner") return;
 
     const nextWidth = Math.round(widthMm) / 10;
@@ -212,33 +218,13 @@ export default function StepViewer() {
 
     const standardWidth = cabinet.standardWidth ?? getSkuByCode(cabinet.sku)?.width ?? cabinet.width;
     const resized = resizeCabinetAtOrigin(cabinet, nextWidth, standardWidth);
-    const growsBackwards = cabinet.wall === "B" || (cabinet.wall === "P" && cabinet.runSide === "left");
-    const shifted = cabinets.map((item) => {
-      if (cabinetKey(item) === cabinetKey(cabinet)) return resized;
-      if (
-        cabinet.placementMode !== "free" &&
-        item.placementMode !== "free" &&
-        item.wall === cabinet.wall &&
-        cabinetLayer(item) === cabinetLayer(cabinet) &&
-        (growsBackwards ? item.xPos < cabinet.xPos : item.xPos > cabinet.xPos)
-      ) {
-        return { ...item, xPos: item.xPos + (growsBackwards ? -delta : delta) };
-      }
-      return item;
-    });
-
-    const wallEnd = editorWallEnd(cabinet.wall, dimensions, layout);
-    const runFits = shifted
-      .filter((item) => item.placementMode !== "free" && item.wall === cabinet.wall && cabinetLayer(item) === cabinetLayer(cabinet))
-      .every((item) => item.xPos >= editorWallStart(item.wall, dimensions, layout) && item.xPos + item.width <= wallEnd);
-
-    if (!runFits) {
-      useConfigStore.setState({
-        layoutWarnings: ["Latimea personalizata depaseste spatiul disponibil pe acest perete.", ...layoutWarnings],
-      });
+    const remaining = cabinets.filter(item => cabinetKey(item) !== cabinetKey(cabinet));
+    if (resized.placementMode !== "free" && !validEditorSlot(resized, resized.xPos, remaining, dimensions, layout, activeConstraints ?? {})) {
+      setResizeError("Dimensiunea nu incape in spatiul liber. Mutati corpul vecin sau alegeti o latime mai mica. Modificarea nu a fost aplicata.");
+      setCustomWidthMm(String(Math.round(cabinet.width * 10)));
       return;
     }
-
+    const shifted = cabinets.map(item => cabinetKey(item) === cabinetKey(cabinet) ? resized : item);
     commitCabinets(shifted, resized);
   }
 
@@ -407,11 +393,16 @@ export default function StepViewer() {
     setExporting(true);
     setExportError("");
     try {
+      if (format === "pptx") {
+        if (!isInternal) throw new Error("Autentificare interna necesara pentru export PowerPoint.");
+        setPptxDownload(null);
+      }
       const screenshots = await capturePdfRenderViews(setRenderPreset);
       if (format === "pptx") {
         if (!isInternal) throw new Error("Autentificare interna necesara pentru export PowerPoint.");
         const { exportKitchenPPTX } = await import("@/lib/pptx/exportPPTX");
-        await exportKitchenPPTX({ cabinets, colorway, handle: colorway.handle, totalPrice, layout, dimensions, screenshots, contact: { name, email, phone }, collection, roomFinishes });
+        const download = await exportKitchenPPTX({ cabinets, colorway, handle: colorway.handle, totalPrice, layout, dimensions, screenshots, contact: { name, email, phone }, collection, roomFinishes });
+        setPptxDownload(download);
         return;
       }
       let cartUrl: string | undefined;
@@ -446,7 +437,7 @@ export default function StepViewer() {
   return (
     <div className={adminDesktop ? "relative admin-desktop-viewer" : "relative"} style={{ height: "100svh", marginLeft: "-1rem", marginRight: "-1rem", marginTop: "-1rem" }}>
       <div
-        key={adminDesktop ? "admin-scene" : visibleCabinets.length + "-" + visibleCabinets.reduce((s,c) => s + c.width, 0)}
+        key="kitchen-scene"
         id="kitchen-viewer"
         className="absolute inset-0 bg-gray-50"
       >
@@ -494,6 +485,10 @@ export default function StepViewer() {
       {isInternal && !show2D && (
         <div className={adminDesktop ? "space-y-2" : "absolute top-16 right-4 z-40"}>
           <button disabled={exporting} onClick={() => { setExportFormat("pptx"); void handleExportPDF("", "", "", "pptx"); }} className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold disabled:opacity-50">{exporting ? "Se exporta…" : "Salveaza PowerPoint"}</button>
+          {pptxDownload && <div role="status" className={`${adminDesktop ? "" : "fixed bottom-4 left-4 right-4 z-[60]"} rounded-xl border border-emerald-200 bg-white p-3 text-sm`}>
+            <p>PowerPoint pregatit.</p>
+            <a href={pptxDownload.url} download={pptxDownload.filename} className="font-semibold underline">Descarca PowerPoint</a>
+          </div>}
         </div>
       )}
       {exportError && <div role="alert" className="absolute top-28 inset-x-4 z-50 rounded-xl bg-red-50 p-3 text-sm text-red-700">{exportError}</div>}
@@ -790,13 +785,16 @@ export default function StepViewer() {
                     value={customWidthMm}
                     onChange={(event) => {
                       setCustomWidthMm(event.target.value);
-                      const value = Number(event.target.value);
-                      if (value >= 200 && value <= 1200) setSelectedCabinetWidth(value);
+                      setResizeError("");
                     }}
+                    onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); setSelectedCabinetWidth(Number(customWidthMm)); } }}
                     className="min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold outline-none focus:border-gray-900"
                   />
                   <span className="text-xs text-gray-500">mm</span>
                 </label>
+                <button type="button" onClick={() => setSelectedCabinetWidth(Number(customWidthMm))} className="rounded-lg bg-gray-900 px-4 py-2 text-xs font-semibold text-white">Aplica dimensiunea</button>
+                <p className="text-xs text-gray-500">Latime aplicata: {Math.round(activeSelectedCabinet.width * 10)} mm. Celelalte corpuri raman pe pozitie.</p>
+                {resizeError && <p role="alert" className="text-xs text-red-700">{resizeError}</p>}
                 {activeSelectedCabinet.customPriceBreakdown && (
                   <div className="grid grid-cols-2 gap-x-3 gap-y-1 rounded-xl bg-gray-50 p-3 text-[11px]">
                     <span className="text-gray-500">Pret standard</span><span className="text-right font-semibold">{activeSelectedCabinet.customPriceBreakdown.standardPrice.toLocaleString("ro-RO")} RON</span>

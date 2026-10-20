@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import ts from 'typescript';
+import JSZip from 'jszip';
+const source=readFileSync(new URL('../lib/pptx/exportPPTX.ts',import.meta.url),'utf8');
+const ast=ts.createSourceFile('export.ts',source,ts.ScriptTarget.Latest,true);
+const fn=ast.statements.find(n=>n.name?.text==='exportKitchenPPTX');
+const code=ts.transpileModule(fn.getText(ast),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021}}).outputText;
+const template=readFileSync(new URL('../public/templates/asab-designer-quote.pptx',import.meta.url));
+const zip=await JSZip.loadAsync(template);
+for(const path of ['ppt/presentation.xml','ppt/slides/slide1.xml','ppt/slides/slide2.xml','ppt/slides/slide4.xml','ppt/slides/slide7.xml'])assert.ok(zip.file(path));
+let response,calls=0;const api={};
+new Function('exports','fetch','buildKitchenPPTX','URL',code)(api,async(url,opts)=>{assert.equal(url,'/api/exports/pptx-template');assert.equal(opts.cache,'no-store');return response;},async bytes=>{calls++;assert.equal(bytes.byteLength,template.length);return new Blob(['test']);},{createObjectURL:()=> 'blob:ready'});
+response=new Response(template);const ready=await api.exportKitchenPPTX({});assert.equal(ready.url,'blob:ready');assert.match(ready.filename,/\.pptx$/);assert.equal(calls,1);
+response=new Response('not found',{status:503});await assert.rejects(api.exportKitchenPPTX({}),/HTTP 503/);
+response=new Response('<html>404</html>');await assert.rejects(api.exportKitchenPPTX({}),/sablon PowerPoint valid/);assert.equal(calls,1);
+const config=readFileSync(new URL('../next.config.mjs',import.meta.url),'utf8');assert.ok(config.includes('"/api/exports/pptx-template": ["./public/templates/asab-designer-quote.pptx"]'));
+console.log('PASS: real template parts, deployment inclusion, HTTP/HTML errors and persistent download descriptor');
+const routeSource=readFileSync(new URL('../app/api/exports/pptx-template/route.ts',import.meta.url),'utf8');
+const routeCode=ts.transpileModule(routeSource,{compilerOptions:{module:ts.ModuleKind.CommonJS,esModuleInterop:true,target:ts.ScriptTarget.ES2021}}).outputText;
+const route={};
+new Function('require','exports','process',routeCode)(name=>name==='node:fs/promises'?{readFile:async()=>template}:name==='node:path'?{join:(...p)=>p.join('/')}:{NextResponse:class extends Response{}},route,{cwd:()=>'/app'});
+const served=await route.GET();assert.equal(served.status,200);assert.match(served.headers.get('content-type'),/presentation/);
+const reader=served.body.getReader();let size=0,chunks=0;for(;;){const part=await reader.read();if(part.done)break;size+=part.value.byteLength;chunks++;assert.ok(part.value.byteLength<=65536);}
+assert.equal(size,template.length);assert.ok(chunks>1);console.log('PASS: template route streams the complete file in bounded chunks');

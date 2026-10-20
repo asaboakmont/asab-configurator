@@ -9,6 +9,7 @@ import type { Cabinet, Colorway, DesignCollectionId, Obstruction, RoomConstraint
 import { cabinetExportData, cabinetObjectName } from "@/lib/asab/exportGLB";
 import { RULES } from "@/lib/rules/resolver";
 import { handleScaleCompensation } from "@/lib/asab/handleScaling";
+import { bakeCabinetMeshGeometry, cornerModelAnchor } from "@/lib/asab/cabinetModelGeometry";
 import { cabinetWidthScale } from "@/lib/asab/cabinetSizing";
 import { getSkuByCode, stripCollectionSku } from "@/data/skus";
 
@@ -320,7 +321,7 @@ export default function KitchenScene({
         const key = cabinetSceneKey(cab);
         return (
         <CabinetMesh
-          key={`${cab.sku}-${cab.wall}-${cab.type}-${i}-${cab.doorDirection}`}
+          key={key}
           cabinet={cab}
           colorway={colorway}
           wallA={wallA}
@@ -1576,12 +1577,16 @@ function servicePointColor(type: string): string {
 }
 
 class GLBErrorBoundary extends React.Component<
-  { fallback: React.ReactNode; children: React.ReactNode },
-  { hasError: boolean }
+  { fallback: React.ReactNode; children: React.ReactNode; resetKey?: string },
+  { hasError: boolean; resetKey?: string }
 > {
-  constructor(props: { fallback: React.ReactNode; children: React.ReactNode }) {
+  constructor(props: { fallback: React.ReactNode; children: React.ReactNode; resetKey?: string }) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, resetKey: props.resetKey };
+  }
+
+  static getDerivedStateFromProps(props: { resetKey?: string }, state: { resetKey?: string }) {
+    return props.resetKey !== state.resetKey ? { hasError: false, resetKey: props.resetKey } : null;
   }
 
   static getDerivedStateFromError() {
@@ -1616,6 +1621,8 @@ function CabinetMeshGLB({
   const { sku } = cabinet;
   const baseSku = cabinet.baseSku ?? stripCollectionSku(sku);
 
+  const [loadError, setLoadError] = React.useState("");
+  const [loadAttempt, setLoadAttempt] = React.useState(0);
   const [meshes, setMeshes] = React.useState<
     {
       geometry: THREE.BufferGeometry;
@@ -1718,6 +1725,8 @@ function CabinetMeshGLB({
   React.useEffect(() => {
     let cancelled = false;
 
+    setLoadError("");
+    setMeshes([]);
     fetchModelBuffer(baseSku, collection)
       .then((rawBuffer) => {
         if (cancelled) return;
@@ -1740,6 +1749,8 @@ function CabinetMeshGLB({
             }[] = [];
 
             gltf.scene.updateMatrixWorld(true);
+            const cornerAnchor = cabinet.type.includes("corner")
+              ? cornerModelAnchor(gltf.scene, baseSku.includes("STG")) : null;
 
             gltf.scene.traverse((child: any) => {
               if (!child.isMesh || !child.geometry) return;
@@ -1750,14 +1761,8 @@ function CabinetMeshGLB({
 
               const matName = normalizeMaterialName(rawMatName);
 
-              const geometry = child.geometry.clone();
-              const shouldBakeParentTransform =
-                matName === "handle" &&
-                hasNonUnitScale(child.parent);
-
-              if (shouldBakeParentTransform) {
-                geometry.applyMatrix4(child.matrixWorld);
-              }
+              const geometry = bakeCabinetMeshGeometry(child);
+              if (cornerAnchor) geometry.applyMatrix4(cornerAnchor);
 
               if (geometry.attributes.color) {
                 geometry.deleteAttribute("color");
@@ -1795,29 +1800,24 @@ function CabinetMeshGLB({
               found.push({
                 geometry,
                 matName,
-                position: shouldBakeParentTransform
-                  ? [0, 0, 0]
-                  : [child.position.x, child.position.y, child.position.z],
-                rotation: shouldBakeParentTransform
-                  ? [0, 0, 0]
-                  : [child.rotation.x, child.rotation.y, child.rotation.z],
-                scale: shouldBakeParentTransform
-                  ? [1, 1, 1]
-                  : [child.scale.x, child.scale.y, child.scale.z],
+                position: [0, 0, 0],
+                rotation: [0, 0, 0],
+                scale: [1, 1, 1],
               });
             });
 
+            if (!found.length) { setLoadError("Modelul GLB nu contine mesh-uri."); return; }
             setMeshes(found);
           },
-          (err: any) => console.error(`Failed parse ${baseSku}:`, err)
+          (err: any) => { if (!cancelled) setLoadError("Modelul GLB nu poate fi citit."); console.error(`Failed parse ${baseSku}:`, err); }
         );
       })
-      .catch((err: any) => console.error(`Failed fetch ${baseSku} for ${collection}:`, err));
+      .catch((err: any) => { if (!cancelled) setLoadError("Modelul GLB nu poate fi incarcat."); console.error(`Failed fetch ${baseSku} for ${collection}:`, err); });
 
     return () => {
       cancelled = true;
     };
-  }, [baseSku, collection]);
+  }, [baseSku, collection, loadAttempt, cabinet.type]);
 
   const matMap: Record<string, THREE.Material> = {
     carcass: carcassMat,
@@ -1851,7 +1851,13 @@ function CabinetMeshGLB({
     []
   );
 
-  if (meshes.length === 0) return null;
+  if (meshes.length === 0) return loadError ? (
+    <group position={[posX, posY, posZ]} userData={{ excludeFromGLB: true }}>
+      <Html><div role="alert" className="w-48 rounded bg-white p-2 text-xs text-red-700">
+        {loadError}<button className="ml-2 underline" onClick={() => setLoadAttempt(value => value + 1)}>Reincearca</button>
+      </div></Html>
+    </group>
+  ) : null;
 
   const standardWidth = cabinet.standardWidth ?? getSkuByCode(cabinet.sku)?.width ?? cabinet.width;
   const widthScale = cabinetWidthScale(cabinet.width, standardWidth);
@@ -2353,7 +2359,7 @@ function CabinetMesh({
       const cornerOffset = isWallCab ? 0 : RULES.CORNER_BASE_OFFSET * CM;
       posX = cornerOffset + (width * CM) / 2;
       posZ = isWallCab ? WALL_Z : BASE_Z;
-      rotY = 0;
+      rotY = Math.PI / 2;
     } else {
       posX = isWallCab ? WALL_Z : BASE_Z;
       posZ = xPos * CM + (width * CM) / 2;
@@ -2364,7 +2370,7 @@ function CabinetMesh({
       const cornerOffset = isWallCab ? 0 : RULES.CORNER_BASE_OFFSET * CM;
       posX = wallA * CM - cornerOffset - (width * CM) / 2;
       posZ = isWallCab ? WALL_Z : BASE_Z;
-      rotY = 0;
+      rotY = -Math.PI / 2;
     } else {
       posX = wallA * CM - (isWallCab ? WALL_Z : BASE_Z);
       posZ = xPos * CM + (width * CM) / 2;
@@ -2382,7 +2388,7 @@ function CabinetMesh({
         ? cornerOffset + (width * CM) / 2
         : wallA * CM - cornerOffset - (width * CM) / 2;
       posZ = isWallCab ? WALL_Z : BASE_Z;
-      rotY = 0;
+      rotY = side === "left" ? Math.PI / 2 : -Math.PI / 2;
     } else {
       posX = side === "left" ? BASE_Z : wallA * CM - BASE_Z;
       posZ = xPos * CM + (width * CM) / 2;
@@ -2544,14 +2550,14 @@ function CabinetMesh({
       const off = type === "base-corner" ? RULES.CORNER_BASE_OFFSET * CM : 0;
       if (cabinet.wall === "B") {
         glbPosX = off;        // 5cm from Wall B
-        glbPosZ = off;        // 5cm from Wall A
+        glbPosZ = off + glbWidth; // +90° turns local width toward -Z
       } else if (cabinet.wall === "C") {
         glbPosX = wallA * CM - off;  // 5cm from Wall C
         glbPosZ = off;               // 5cm from Wall A
       } else if (cabinet.wall === "P") {
         const side = cabinet.runSide ?? "right";
         glbPosX = side === "left" ? off : wallA * CM - off;
-        glbPosZ = off;
+        glbPosZ = off + (side === "left" ? glbWidth : 0);
       }
     } else {
       if (cabinet.wall === "B") {
@@ -2574,9 +2580,11 @@ function CabinetMesh({
 
     const fallback = (
       <group name={cabinetObjectName(cabinet)} userData={cabinetExportData(cabinet, colorway, collection)} position={[posX, posY, posZ]} rotation={[0, rotY, 0]}>
-        <mesh castShadow receiveShadow material={carcassMat}>
+        <mesh>
           <boxGeometry args={[width * CM, height * CM, depth * CM]} />
+          <meshBasicMaterial wireframe color="#b91c1c" />
         </mesh>
+        <Html center><div role="alert" className="w-48 rounded bg-white p-2 text-xs text-red-700">Modelul GLB nu poate fi afisat. Modificati dimensiunea pentru a reincerca.</div></Html>
       </group>
     );
 
@@ -2591,10 +2599,10 @@ function CabinetMesh({
           />
         )}
         {selectionOverlay}
-        <GLBErrorBoundary fallback={fallback}>
-          <React.Suspense fallback={fallback}>
+        <GLBErrorBoundary fallback={fallback} resetKey={`${collection}-${cabinet.baseSku ?? cabinet.sku}-${width}-${height}-${depth}`}>
+          <React.Suspense fallback={null}>
             <CabinetMeshGLB
-              key={`${collection}-${cabinet.sku}-${cabinet.wall}-${cabinet.xPos}-${cabinet.doorDirection}`}
+              key={`${collection}-${cabinet.baseSku ?? stripCollectionSku(cabinet.sku)}`}
               cabinet={cabinet}
               colorway={colorway}
               collection={collection}

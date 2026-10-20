@@ -7,7 +7,7 @@ const P = "http://schemas.openxmlformats.org/presentationml/2006/main";
 const R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 const REL = "http://schemas.openxmlformats.org/package/2006/relationships";
 const CT = "http://schemas.openxmlformats.org/package/2006/content-types";
-const parse = (xml: string) => new DOMParser().parseFromString(xml, "application/xml");
+const parse = (xml: string) => new DOMParser().parseFromString(xml.replace(/^\uFEFF/, ""), "application/xml");
 const serialize = (xml: Document) => new XMLSerializer().serializeToString(xml);
 const money = (value: number) => `${value.toLocaleString("ro-RO", { maximumFractionDigits: 2 })} RON`;
 
@@ -159,15 +159,15 @@ export async function buildKitchenPPTX(template: ArrayBuffer, opts: PDFExportOpt
 }
 
 export async function exportKitchenPPTX(opts: PDFExportOptions) {
-  const response = await fetch("/templates/asab-designer-quote.pptx");
-  if (!response.ok) throw new Error("Nu s-a putut incarca sablonul PowerPoint.");
-  const blob = await buildKitchenPPTX(await response.arrayBuffer(), opts);
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `ASAB-Bucatarie-${Date.now()}.pptx`;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  const response = await fetch("/api/exports/pptx-template", { cache: "no-store" });
+  if (!response.ok) throw new Error(`Sablonul PowerPoint nu este disponibil (HTTP ${response.status}). Reincarcati pagina; daca eroarea persista, versiunea publicata necesita redeploy.`);
+  const template = await response.arrayBuffer();
+  const signature = new Uint8Array(template, 0, Math.min(4, template.byteLength));
+  if (signature[0] !== 0x50 || signature[1] !== 0x4b || signature[2] !== 0x03 || signature[3] !== 0x04) {
+    throw new Error("Serverul nu a returnat un sablon PowerPoint valid. Verificati versiunea publicata.");
+  }
+  const blob = await buildKitchenPPTX(template, opts);
+  // Keep the prepared file available for a direct user click. An automatic
+  // click after asynchronous rendering can lose the browser's user activation.
+  return { url: URL.createObjectURL(blob), filename: `ASAB-Bucatarie-${Date.now()}.pptx` };
 }
