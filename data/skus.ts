@@ -1,3 +1,4 @@
+import { revisedPrice } from "@/lib/pricing/catalogPrices";
 import { customCabinetLabel } from "@/lib/asab/cabinetSizing";
 import type { Cabinet, CabinetType, CustomCabinetPricing, DesignCollectionId } from "@/types/kitchen";
 import { calculateCustomCabinetPrice } from "@/lib/pricing/customCabinetPrice";
@@ -57,8 +58,8 @@ export const TALL_CABINETS: SkuDefinition[] = [
   { sku: "1016",  type: "tall-fridge", width: 60, height: 216, depth: 58, price: 1310, label: "Soldat 600mm Frigider" },
 ];
 
-export const WORKTOP_PRICE_PER_CM = 1.80; // 180 RON per linear meter
-export const HANGING_RAIL = { sku: "4001", label: "Sina Agatare Suspendate 2000mm", price: 44 };
+export const WORKTOP_PRICE_PER_CM = 1.45; // 145 RON per linear meter
+export const HANGING_RAIL = { sku: "ASB-SINA", label: "Sina Agatare Suspendate 2000mm", price: 40 };
 
 export const ALL_SKUS: SkuDefinition[] = [
   ...BASE_CABINETS,
@@ -110,10 +111,11 @@ export function toCollectionSku(sku: string, collection: DesignCollectionId): st
 export function applyCollectionToCabinet(cabinet: Cabinet, collection: DesignCollectionId): Cabinet {
   if (cabinet.catalogProduct) {
     const standardWidth = cabinet.catalogProduct.widthMm / 10;
-    const standardPrice = cabinet.catalogProduct.price;
+    const standardPrice = revisedPrice(cabinet.catalogProduct.sku, standardWidth, collection)?.price ?? cabinet.catalogProduct.price;
     const isCustom = cabinet.width !== standardWidth;
     const customPriceBreakdown = isCustom ? calculateCustomCabinetPrice({ standardPrice, standardWidth, customWidth: cabinet.width, pricing: customPricingForType(cabinet.type) }) : undefined;
-    return { ...cabinet, standardWidth, standardPrice, isCustom, customPriceBreakdown, label: customCabinetLabel(cabinet.catalogProduct.name, isCustom), price: customPriceBreakdown?.finalPrice ?? standardPrice };
+    const listed = revisedPrice(cabinet.catalogProduct.sku, cabinet.width, collection);
+    return { ...cabinet, displaySku: listed?.displaySku, pricingNote: listed?.note, priceSource: listed ? "catalogue" : isCustom ? "custom" : "catalogue", standardWidth, standardPrice, isCustom, customPriceBreakdown: listed ? undefined : customPriceBreakdown, label: customCabinetLabel(cabinet.catalogProduct.name, isCustom), price: listed?.price ?? customPriceBreakdown?.finalPrice ?? standardPrice };
   }
   const baseSku = cabinet.baseSku ?? stripCollectionSku(cabinet.sku);
   const nextSku = toCollectionSku(baseSku, collection);
@@ -131,17 +133,21 @@ export function applyCollectionToCabinet(cabinet: Cabinet, collection: DesignCol
       })
     : undefined;
 
+  const listed = revisedPrice(baseSku, cabinet.width, collection);
   return {
     ...cabinet,
+    displaySku: listed?.displaySku,
+    pricingNote: listed?.note ?? (!listed && !isCustom ? "Pret anterior: modelul nu are echivalent confirmat in catalogul revizuit." : undefined),
+    priceSource: listed ? "catalogue" : isCustom ? "custom" : "legacy",
     id: cabinet.id ?? `${baseSku}-${cabinet.wall}-${cabinet.type}-${cabinet.xPos}`,
     sku: nextSku,
     baseSku,
     standardWidth,
     standardPrice,
     isCustom,
-    label: customCabinetLabel(cabinet.label ?? definition?.label ?? baseSku, isCustom),
-    customPriceBreakdown,
-    price: customPriceBreakdown?.finalPrice ?? standardPrice,
+    label: customCabinetLabel(listed ? `${listed.name} ${Math.round(cabinet.width * 10)} mm` : cabinet.label ?? definition?.label ?? baseSku, isCustom),
+    customPriceBreakdown: listed ? undefined : customPriceBreakdown,
+    price: listed?.price ?? customPriceBreakdown?.finalPrice ?? standardPrice,
   };
 }
 
@@ -164,7 +170,7 @@ export function getSkuByCode(sku: string): SkuDefinition | undefined {
 
   return {
     ...definition,
-    price: applyCollectionPrice(definition.price, collection),
+    price: collection ? (revisedPrice(baseSku, definition.width, collection)?.price ?? applyCollectionPrice(definition.price, collection)) : definition.price,
   };
 }
 

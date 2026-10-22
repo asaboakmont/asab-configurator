@@ -81,6 +81,9 @@ export type CabinetType =
   | "panel" | "accessory";
 
 export interface Cabinet {
+  displaySku?: string;
+  pricingNote?: string;
+  priceSource?: "catalogue" | "custom" | "legacy";
   catalogProduct?: import("@/lib/catalog/schema").CatalogProduct;
   id?: string;
   sku:    string;

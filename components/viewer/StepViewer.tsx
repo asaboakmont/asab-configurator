@@ -4,6 +4,7 @@ import React from "react";
 import InternalCatalog from "./InternalCatalog";
 import type { CatalogProduct } from "@/lib/catalog/schema";
 import type { Scene } from "three";
+import { DEFAULT_HD_SETTINGS, type HDSettings, type HDImage } from "@/lib/render/hdRender";
 import { downloadKitchenGLB } from "@/lib/asab/exportGLB";
 import { Suspense, useState } from "react";
 import { useConfigStore } from "@/store/configuratorStore";
@@ -16,6 +17,7 @@ import type { SkuDefinition } from "@/data/skus";
 import { calcTotalPrice, RULES } from "@/lib/rules/resolver";
 import { getSkuByCode } from "@/data/skus";
 
+const HDRenderDialog = dynamic(() => import("./HDRenderDialog"), { ssr: false });
 const KitchenScene = dynamic(() => import("./KitchenScene"), { ssr: false });
 type RenderCameraPreset = "interactive" | "NW" | "NE" | "TOP";
 type CabinetLayer = "wall" | "ground";
@@ -30,6 +32,10 @@ interface GapAddTarget {
 }
 
 export default function StepViewer() {
+  const [hdRenderOpen, setHDRenderOpen] = useState(false);
+  const [hdRenderTarget, setHDRenderTarget] = useState<"png" | "pptx">("png");
+  const [hdSettings, setHDSettings] = useState<HDSettings>(DEFAULT_HD_SETTINGS);
+  const [hdCache, setHDCache] = useState<{ revision: string; images: Record<string, HDImage> }>({ revision: "", images: {} });
   const [liveScene, setLiveScene] = useState<Scene | null>(null);
   const [exportingGLB, setExportingGLB] = useState(false);
   const [glbError, setGlbError] = useState("");
@@ -65,6 +71,14 @@ export default function StepViewer() {
     finally { glbBusy.current = false; setExportingGLB(false); }
   };
   const { cabinets, totalPrice, colorway, layout, dimensions, constraints, collection, roomFinishes, devConstraintsUnlocked, setColorway, setStep, layoutWarnings } = useConfigStore();
+  const hdRevision = JSON.stringify({ cabinets, colorway, layout, dimensions, constraints, collection, roomFinishes });
+  const hdImages = hdCache.revision === hdRevision ? hdCache.images : {};
+  const rememberHD = (key: string, image: HDImage) => setHDCache(previous => {
+    const images = { ...(previous.revision === hdRevision ? previous.images : {}) };
+    delete images[key];
+    // Bound memory when trying many combinations of light, angle and quality.
+    return { revision: hdRevision, images: { ...Object.fromEntries(Object.entries(images).slice(-11)), [key]: image } };
+  });
   const [showHints,    setShowHints]    = useState(true);
   const [exporting,    setExporting]    = useState(false);
   const [finishPicker, setFinishPicker] = useState<"doors" | "worktop" | "handles" | null>(null);
@@ -389,34 +403,45 @@ export default function StepViewer() {
         }
       : { background: worktop.hex };
 
-  const handleExportPDF = async (name = "", email = "", phone = "", format = exportFormat) => {
+  const handleExportPDF = async (name = "", email = "", phone = "", format = exportFormat, hdScreenshots?: HDImage[]) => {
+    const was2D = show2D;
+    const selectionBeforeExport = selectedCabinetKey;
     setExporting(true);
     setExportError("");
     try {
+      if (isInternal) {
+        const response = await fetch("/api/internal/session", { cache: "no-store" });
+        const session = await response.json().catch(() => ({}));
+        if (!response.ok || !["admin", "designer"].includes(session.role)) {
+          useConfigStore.getState().setInternalRole(null);
+          throw new Error("Sesiunea interna a expirat. Autentificati-va din nou.");
+        }
+      }
       if (format === "pptx") {
         if (!isInternal) throw new Error("Autentificare interna necesara pentru export PowerPoint.");
         setPptxDownload(null);
       }
-      const screenshots = await capturePdfRenderViews(setRenderPreset);
+      if (was2D) { setShow2D(false); await waitForRenderFrame(900); }
+      const screenshots = hdScreenshots ?? await capturePdfRenderViews(setRenderPreset);
       if (format === "pptx") {
         if (!isInternal) throw new Error("Autentificare interna necesara pentru export PowerPoint.");
         const { exportKitchenPPTX } = await import("@/lib/pptx/exportPPTX");
         const download = await exportKitchenPPTX({ cabinets, colorway, handle: colorway.handle, totalPrice, layout, dimensions, screenshots, contact: { name, email, phone }, collection, roomFinishes });
         setPptxDownload(download);
-        return;
+        return true;
       }
       let cartUrl: string | undefined;
       try {
         const res = await fetch("/api/shopify/draft-order", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            cabinets: visibleCabinets,
+            cabinets: cabinets,
             colorway,
             handle: colorway.handle,
             totalPrice,
             dimensions,
             layout,
-            constraints: visibleConstraints,
+            constraints: activeConstraints,
             collection,
             roomFinishes,
             contact: { name, phone, email },
@@ -425,11 +450,16 @@ export default function StepViewer() {
         });
         if (res.ok) { const data = await res.json(); cartUrl = data.checkoutUrl; }
       } catch(e) { console.warn("Cart URL failed:", e); }
-      await exportKitchenPDF({ includeCabinetTotal: isInternal, cabinets: visibleCabinets, colorway, handle: colorway.handle, totalPrice, layout, dimensions, screenshots, cartUrl, contact: { name, phone, email }, constraints: visibleConstraints, collection, roomFinishes });
+      const technical = isInternal && liveScene
+        ? await (await import("@/lib/pdf/technicalViews")).captureTechnicalViews(liveScene, cabinets).catch(() => ({ images: [], cabinetImages: [], warnings: ["Vederile 3D in contur nu au putut fi generate. Schemele individuale sunt orientative."] }))
+        : { images: [], cabinetImages: [], warnings: ["Scena 3D nu este disponibila. Schemele individuale sunt orientative."] };
+      await exportKitchenPDF({ technicalViews: technical.images, cabinetViews: technical.cabinetImages, technicalWarnings: technical.warnings, enhancedPDF: isInternal, includeCabinetTotal: isInternal, cabinets: cabinets, colorway, handle: colorway.handle, totalPrice, layout, dimensions, screenshots, cartUrl, contact: { name, phone, email }, constraints: activeConstraints, collection, roomFinishes });
     } catch (error) {
       setExportError(error instanceof Error ? error.message : "Exportul nu a reusit. Incercati din nou.");
+      return false;
     } finally {
       setRenderPreset("interactive");
+      if (was2D) { setShow2D(true); setSelectedCabinetKey(selectionBeforeExport); }
       setExporting(false);
     }
   };
@@ -484,13 +514,14 @@ export default function StepViewer() {
       <div className={adminDesktop ? "admin-inspector" : "contents"}>
       {isInternal && !show2D && (
         <div className={adminDesktop ? "space-y-2" : "absolute top-16 right-4 z-40"}>
-          <button disabled={exporting} onClick={() => { setExportFormat("pptx"); void handleExportPDF("", "", "", "pptx"); }} className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold disabled:opacity-50">{exporting ? "Se exporta…" : "Salveaza PowerPoint"}</button>
+          <button disabled={exporting || !liveScene} onClick={() => { setHDRenderTarget("pptx"); setHDRenderOpen(true); }} className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold disabled:opacity-50">{exporting ? "Se exporta…" : "Salveaza PowerPoint"}</button>
           {pptxDownload && <div role="status" className={`${adminDesktop ? "" : "fixed bottom-4 left-4 right-4 z-[60]"} rounded-xl border border-emerald-200 bg-white p-3 text-sm`}>
             <p>PowerPoint pregatit.</p>
             <a href={pptxDownload.url} download={pptxDownload.filename} className="font-semibold underline">Descarca PowerPoint</a>
           </div>}
         </div>
       )}
+      {hdRenderOpen && liveScene && <HDRenderDialog corner={layout === "l-shape" ? dimensions.cornerSide ?? "right" : undefined} target={hdRenderTarget} settings={hdSettings} onSettings={setHDSettings} images={hdImages} onImage={rememberHD} onPPTX={images => handleExportPDF("", "", "", "pptx", images)} scene={liveScene} expectedCabinets={cabinets.length} rightCorner={cabinets.some(c => c.wall === "C")} onClose={() => setHDRenderOpen(false)} />}
       {exportError && <div role="alert" className="absolute top-28 inset-x-4 z-50 rounded-xl bg-red-50 p-3 text-sm text-red-700">{exportError}</div>}
       {isInternal && <div className={adminDesktop ? "" : "absolute top-40 right-4 z-40 w-80 max-h-[45vh] overflow-auto"}><InternalCatalog admin={internalRole === "admin"} onAdd={addImportedProduct} /></div>}
       {isInternal && (
@@ -642,6 +673,7 @@ export default function StepViewer() {
                 {glbError && <p role="alert" className="text-sm text-red-600">{glbError}</p>}
               </>
             )}
+            <button type="button" onClick={() => { setHDRenderTarget("png"); setHDRenderOpen(true); }} disabled={!liveScene || exporting || exportingGLB} className="w-full rounded-xl border border-gray-300 py-3 text-sm font-semibold text-gray-900 disabled:opacity-50">Export randare HD</button>
             <div className="grid grid-cols-2 gap-2">
               <button onClick={() => { setExportFormat("pdf"); if (glbExportEnabled) void handleExportPDF("", "", "", "pdf"); else setPdfModalOpen(true); }} disabled={exporting}
                 className="py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600">

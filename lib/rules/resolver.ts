@@ -1,3 +1,4 @@
+import { calculateExportPricing } from "@/lib/pricing/exportPricing";
 import type {
   Cabinet,
   WallDimensions,
@@ -1713,35 +1714,11 @@ function getOpeningConflicts(cab: Cabinet, constraints: RoomConstraints): Cabine
   return conflicts;
 }
 
-// ── REPLACE the DOOR_PRICE_BY_WIDTH constant and calcTotalPrice at the bottom of resolver.ts ──
+// Viewer and documents share the same VAT-inclusive total.
 
-const DOOR_PRICE_BY_WIDTH: Record<number, number> = {
-  40: 80, 45: 90, 50: 100, 60: 110, 80: 140, 95: 180, 100: 190
-};
+export const CABINET_DISCOUNT = 0;
 
-export const CABINET_DISCOUNT = 0.20; // 20% off cabinets, worktop stays full price
-
-export function calcTotalPrice(
-  cabinets: Cabinet[],
-  wallA: number,
-  wallB?: number,
-  layout?: LayoutType
-): { original: number; discounted: number } {
-  const cabPrice = cabinets.reduce((sum, c) => sum + (c.price ?? 0), 0);
-
-  // Subtract tall cabinet widths from Wall A — no worktop above tall columns
-  const tallWidthA = cabinets
-    .filter(c => c.wall === "A" && c.type.startsWith("tall"))
-    .reduce((sum, c) => sum + c.width, 0);
-
-  // 1.80 RON/cm = 180 RON/linear meter (matches Shopify worktop price)
-  const islandAndPeninsulaWidth = cabinets
-    .filter(c => (c.wall === "I" || c.wall === "P") && !c.type.startsWith("wall") && !c.type.startsWith("tall"))
-    .reduce((sum, c) => sum + c.width, 0);
-  const worktopLength = (wallA - tallWidthA) + (layout === "l-shape" ? (wallB ?? 0) : 0) + islandAndPeninsulaWidth;
-  const worktopPrice  = worktopLength * 1.80;
-
-  const original   = Math.round(cabPrice + worktopPrice);
-  const discounted = Math.round(cabPrice * (1 - CABINET_DISCOUNT) + worktopPrice);
-  return { original, discounted };
+export function calcTotalPrice(cabinets: Cabinet[], wallA: number, wallB?: number, layout?: LayoutType): { original: number; discounted: number } {
+  const { total } = calculateExportPricing(cabinets, layout ?? "linear", { wallA, wallB, height: 0 });
+  return { original: total, discounted: total };
 }

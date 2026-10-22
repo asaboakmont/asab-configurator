@@ -1,4 +1,5 @@
 "use client";
+import { kitchenExportCorner, kitchenExportDirection } from "@/lib/render/exportCameras";
 import ImportedCabinetModel from "./ImportedCabinetModel";
 import React, { useMemo } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
@@ -259,7 +260,7 @@ export default function KitchenScene({
         maxDistance={95}
         target={[midX, 1.2, 0.315]}
       />
-      {adminDesktop && <AdminCamera cabinets={cabinets} wallA={wallA} focusWall={focusWall} preset={renderPreset} controlsRef={controlsRef} />}
+      {adminDesktop && <AdminCamera cornerSide={wallB ? cornerSide : undefined} cabinets={cabinets} wallA={wallA} focusWall={focusWall} preset={renderPreset} controlsRef={controlsRef} />}
       <WallEditOrbitExit
         focusWall={!adminDesktop && renderPreset === "interactive" ? focusWall : null}
         wallA={wallA}
@@ -269,6 +270,7 @@ export default function KitchenScene({
       />
       {!adminDesktop && <WallFocusCamera focusWall={!adminDesktop && renderPreset === "interactive" ? focusWall : null} wallA={wallA} wallB={wallB} controlsRef={controlsRef} />}
       {!adminDesktop && <RenderPresetCamera
+        cornerSide={wallB ? cornerSide : undefined}
         preset={renderPreset}
         cabinets={cabinets}
         wallA={wallA}
@@ -460,7 +462,8 @@ function ConstructionPaperBackground() {
   return null;
 }
 
-function AdminCamera({ cabinets, wallA, focusWall, preset, controlsRef }: {
+function AdminCamera({ cabinets, wallA, focusWall, preset, controlsRef, cornerSide }: {
+  cornerSide?: "left" | "right";
   cabinets: Cabinet[]; wallA: number; focusWall?: WallSide | null; preset: RenderCameraPreset;
   controlsRef: React.MutableRefObject<any>;
 }) {
@@ -483,7 +486,8 @@ function AdminCamera({ cabinets, wallA, focusWall, preset, controlsRef }: {
     const target = new THREE.Vector3((minX + maxX) / 2, height / 2, (minZ + maxZ) / 2);
     const perspective = camera as THREE.PerspectiveCamera;
     perspective.fov = 50;
-    const direction = preset === "TOP" ? new THREE.Vector3(0, 1, 0.001) : preset === "NW" ? new THREE.Vector3(-0.78, 0.55, 0.78) : preset === "NE" ? new THREE.Vector3(0.78, 0.55, 0.78) : focusWall === "B" ? new THREE.Vector3(1, 0.12, 0) : focusWall === "C" ? new THREE.Vector3(-1, 0.12, 0) : new THREE.Vector3(0, focusWall ? 0.12 : 0.45, 1);
+    const corner = kitchenExportCorner(cabinets, cornerSide);
+    const direction = corner && (preset === "NW" || preset === "NE") ? kitchenExportDirection(corner, preset === "NW" ? "first" : "second") : preset === "TOP" ? new THREE.Vector3(0, 1, 0.001) : preset === "NW" ? new THREE.Vector3(-0.78, 0.55, 0.78) : preset === "NE" ? new THREE.Vector3(0.78, 0.55, 0.78) : focusWall === "B" ? new THREE.Vector3(1, 0.12, 0) : focusWall === "C" ? new THREE.Vector3(-1, 0.12, 0) : new THREE.Vector3(0, focusWall ? 0.12 : 0.45, 1);
     direction.normalize();
     const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), direction).normalize();
     const up = new THREE.Vector3().crossVectors(direction, right).normalize();
@@ -499,17 +503,19 @@ function AdminCamera({ cabinets, wallA, focusWall, preset, controlsRef }: {
     perspective.updateProjectionMatrix();
     controlsRef.current?.target.copy(target);
     controlsRef.current?.update();
-  }, [camera, cabinets, wallA, focusWall, preset, size.width, size.height, controlsRef]);
+  }, [camera, cabinets, wallA, focusWall, preset, size.width, size.height, controlsRef, cornerSide]);
   return null;
 }
 
 function RenderPresetCamera({
+  cornerSide,
   preset,
   cabinets,
   wallA,
   wallB,
   controlsRef,
 }: {
+  cornerSide?: "left" | "right";
   preset: RenderCameraPreset;
   cabinets: Cabinet[];
   wallA: number;
@@ -554,6 +560,9 @@ function RenderPresetCamera({
     target.set(bounds.centerX, 0, bounds.centerZ);
     const topFit = Math.max(fitForWidth, fitForHeight) * 1.22;
     position = new THREE.Vector3(bounds.centerX, Math.max(5.2, topFit), bounds.centerZ);
+  } else if (kitchenExportCorner(cabinets, cornerSide)) {
+    const direction = kitchenExportDirection(kitchenExportCorner(cabinets, cornerSide), preset === "NW" ? "first" : "second").normalize();
+    position = target.clone().addScaledVector(direction, distance * 1.3);
   } else if (preset === "NE") {
     position = new THREE.Vector3(
       bounds.centerX + distance * 0.78,
@@ -578,7 +587,7 @@ function RenderPresetCamera({
     controlsRef.current.target.copy(target);
     controlsRef.current.update();
   }
-}, [bounds, camera, controlsRef, preset, target, wallA, wallB]);
+}, [bounds, cabinets, camera, controlsRef, preset, target, wallA, wallB, cornerSide]);
 
   return null;
 }
