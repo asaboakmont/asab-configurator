@@ -33,13 +33,13 @@ const custom=applyCollectionToCabinet({...base,width:37},'japandi');assert.equal
 const legacy=applyCollectionToCabinet({...base,sku:'1015',baseSku:'1015',type:'base-dishwasher',width:60,standardWidth:60},'japandi');assert.equal(legacy.priceSource,'legacy');assert(legacy.pricingNote);
 const cabinets=[{price:1000},{price:500}];
 for(const cm of [0,120,205,206,410,411,615,616]){
- const p=calculateExportPricing(cabinets,'linear',{wallA:cm});assert.equal(p.worktopPrice,Math.round(cm*145)/100);assert.equal(p.total,1500+p.worktopPrice);
+ const p=calculateExportPricing(cabinets,'linear',{wallA:cm});assert.equal(p.worktopPrice,Math.ceil(cm/205)*370);assert.equal(p.total,1500+p.worktopPrice);
 }
 assert.equal(calculateExportPricing(cabinets,'l-shape',{wallA:300,wallB:180}).worktopLengthCm,420);
 assert.equal(calculateExportPricing([{type:'tall',wall:'A',width:60,price:1000}],'linear',{wallA:300}).worktopLengthCm,240);
 assert.equal(calculateExportPricing(cabinets,'linear',{wallA:300,hasIsland:true,islandWidth:180}).worktopLengthCm,480);
 assert.equal(calculateExportPricing(cabinets,'peninsula',{wallA:300,peninsulaWidth:160}).worktopLengthCm,460);
-assert.equal(calculateExportPricing([{price:1000.12},{price:500.34}],'linear',{wallA:205}).total,1797.71);
+assert.equal(calculateExportPricing([{price:1000.12},{price:500.34}],'linear',{wallA:205}).total,1870.46);
 const {kitchenIsometricDirection}=load('@/lib/pdf/technicalViews');
 assert.deepEqual(kitchenIsometricDirection([{wall:'A'},{wall:'B'}]).toArray(),[1,1,1]);
 assert.deepEqual(kitchenIsometricDirection([{wall:'A'},{wall:'C'}]).toArray(),[-1,1,1]);
@@ -59,8 +59,8 @@ const fixtures=[listed,
  applyCollectionToCabinet({...base,id:'tall',baseSku:'1011B',sku:'1011B',type:'tall-oven',width:60,standardWidth:60,height:216,xPos:95},'japandi'),
  applyCollectionToCabinet({...base,id:'corner',baseSku:'1001-STG',sku:'1001-STG',type:'base-corner',width:95,standardWidth:95,xPos:155},'japandi')];
 const doc=createKitchenPDF({enhancedPDF:true,cabinets:fixtures,colorway:{name:'Alb mat',finish:'mat',doorHex:'#ffffff',worktopHex:'#cccccc',worktop:'stejar'},handle:'inox',totalPrice:0,layout:'linear',dimensions:{wallA:300,height:250},collection:'japandi',includeCabinetTotal:true});
-assert(doc.getNumberOfPages()>=5,'summary plus cabinet pages');
-assert.equal(doc.internal.pages.filter(p=>p.join(' ').includes('Interior schematic')).length,fixtures.length,'exactly one detail page per cabinet');
+assert(doc.getNumberOfPages()>=4,'summary, paired cabinet pages and top plan');
+assert.equal(doc.internal.pages.filter(p=>p.join(' ').includes('Interior schematic')).length,Math.ceil(fixtures.length/2),'two cabinets per detail page');
 const content=doc.internal.pages.flat().join("\n");assert(content.includes('Interior schematic'));assert(content.includes('ASAB-CI-1U-RAFT-W0350-JPN'));assert(!content.includes('nu includ TVA'));
 const imageFixture={label:'Randare color de test',aspect:2/3,dataUrl:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAE0lEQVR4nGP8//8/AwwwwVl4OQCWbgMF7ZjH1AAAAABJRU5ErkJggg=='};
 const illustrated=createKitchenPDF({enhancedPDF:true,cabinets:fixtures,colorway:{name:'Alb mat',finish:'mat',doorHex:'#ffffff',worktopHex:'#cccccc',worktop:'stejar'},handle:'inox',totalPrice:0,layout:'linear',dimensions:{wallA:300,height:250},collection:'japandi',screenshots:[imageFixture],technicalViews:[{...imageFixture,label:'Bucatarie 3D in contur'},{...imageFixture,label:'Bucatarie izometrica fara fronturi'}]});
@@ -77,5 +77,23 @@ const opts={cabinets:fixtures,colorway:{name:'Alb mat',finish:'mat',doorHex:'#ff
 const publicPDF=createKitchenPDF(opts);const publicText=publicPDF.internal.pages.flat().join(' ');
 assert(!publicText.includes('Interior schematic'));assert(!publicText.includes('Bucatarie 3D in contur'));assert(!publicText.includes('nu includ TVA'));
 const pages=illustrated.internal.pages.slice(1).map(p=>p.join(' '));
-assert(pages[0].includes('Randare color de test'));assert(pages[1].includes('Bucatarie 3D in contur'));assert(pages[2].includes('Bucatarie izometrica fara fronturi'));assert(pages[3].includes('Rezumat configuratie'));
+assert(pages[0].includes('Randare color de test'));assert(pages[1].includes('Bucatarie 3D in contur'));assert(pages[2].includes('Bucatarie izometrica fara fronturi'));assert(pages[3].includes('Plan de sus cotat'));assert(pages[4].includes('Rezumat configuratie'));assert(!publicText.includes('Plan de sus cotat'));
 console.log('PASS: public PDF remains compact; enhanced detail pages opt in; full-kitchen isometrics follow the colour views.');
+
+const customerPDF=createKitchenPDF({...opts,enhancedPDF:true,contact:{name:'Client Exemplu',phone:'0700 000 000',city:'Brasov',email:''}});
+const customerText=customerPDF.internal.pages.flat().join(' ');for(const value of ['Client Exemplu','0700 000 000','Brasov'])assert(customerText.includes(value));
+console.log('PASS: customer name, phone and city appear in the enhanced PDF.');
+
+if(process.env.ASAB_CUSTOMER_SAMPLE)fs.writeFileSync(process.env.ASAB_CUSTOMER_SAMPLE,Buffer.from(customerPDF.output('arraybuffer')));
+
+assert(!customerText.includes('Contur din modelul 3D redimensionat'));assert(!customerText.includes('Interior extras din geometria GLB'));
+const linked=createKitchenPDF({...opts,enhancedPDF:true,configuratorUrl:'https://example.com/?config=test'});
+assert(linked.internal.pages.flat().join(' ').includes('Vizualizeaza in configurator'));
+assert(linked.output().includes('https://example.com/?config=test'));
+console.log('PASS: paired cabinet tables, removed boilerplate and a clickable configurator CTA.');
+
+assert(customerText.includes('Blat - detalii'));assert(customerText.includes('740'));
+
+const noCoordinates=createKitchenPDF({...opts,enhancedPDF:true,technicalViews:[{...imageFixture,label:'Vedere in contur - perete A'}]});
+const noCoordinatesText=noCoordinates.internal.pages.flat().join(' ');assert(noCoordinatesText.includes('Vedere in contur - perete A'));assert(!noCoordinatesText.includes('X inceput mm'));assert(!noCoordinatesText.includes('Nr corp    X'));
+console.log('PASS: wall drawings remain, with coordinate tables removed.');

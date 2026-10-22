@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import ts from 'typescript';
+const api={};let response,body;
+const code=ts.transpileModule(fs.readFileSync(new URL('../lib/asab/configuratorLink.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
+new Function('exports','fetch',code)(api,async(url,options)=>{assert.equal(url,'/api/config/save');body=JSON.parse(options.body);return response;});
+const config={layout:'l-shape',dimensions:{wallA:400,wallB:300},cabinets:[{id:'exact',width:73,wall:'C',xPos:95}]};
+response=new Response(JSON.stringify({url:'https://example.com/?config=saved-id'}));assert.equal(await api.createExportConfiguratorLink(config),'https://example.com/?config=saved-id');assert.deepEqual(body,{config});assert(!body.name&&!body.phone&&!body.email);
+response=new Response(JSON.stringify({error:'Storage unavailable'}),{status:503});await assert.rejects(api.createExportConfiguratorLink(config),/Storage unavailable/);
+response=new Response(JSON.stringify({url:'javascript:alert(1)'}));await assert.rejects(api.createExportConfiguratorLink(config),/link valid/);
+console.log('PASS: exact configuration snapshot, no customer contact payload, valid CTA URL and save failures.');

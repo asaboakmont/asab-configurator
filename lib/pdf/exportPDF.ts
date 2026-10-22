@@ -1,3 +1,4 @@
+import { addDimensionedTopPlan } from "@/lib/pdf/dimensionedPlan";
 import { createPublicKitchenPDF } from "@/lib/pdf/publicKitchenPDF";
 import { addCabinetPages } from "@/lib/pdf/cabinetPages";
 import { cabinetDocumentSku } from "@/lib/pricing/catalogPrices";
@@ -20,10 +21,12 @@ export interface PDFExportOptions {
   screenshot?: string;
   screenshots?: { label: string; dataUrl: string; aspect: number }[];
   technicalViews?: TechnicalImage[];
+  worktopView?: TechnicalImage;
   cabinetViews?: CabinetTechnicalImage[];
   technicalWarnings?: string[];
   cartUrl?:    string;
-  contact?:    { name: string; email: string; phone: string };
+  configuratorUrl?: string;
+  contact?:    { name: string; email: string; phone: string; city?: string };
   constraints?: RoomConstraints;
   collection?: DesignCollectionId;
   budget?: BudgetPreference;
@@ -90,7 +93,9 @@ export function createKitchenPDF(opts: PDFExportOptions) {
   const kitchenIsometrics = (opts.technicalViews ?? []).filter(isKitchenIsometric);
   if (kitchenIsometrics.length) addCabinetPages(doc, { ...opts, cabinets: [], technicalViews: kitchenIsometrics, technicalWarnings: [] });
 
-  if (renderImages.length > 0 || kitchenIsometrics.length > 0) {
+  const planNearRenders = renderImages.length > 0 || kitchenIsometrics.length > 0;
+  if (planNearRenders) addDimensionedTopPlan(doc, opts);
+  if (planNearRenders) {
     doc.addPage();
   }
   let y = 38;
@@ -100,7 +105,11 @@ export function createKitchenPDF(opts: PDFExportOptions) {
   doc.text("Rezumat configuratie", margin, y);
   y += 8;
 
+  const clientText = (value: string) => value.replace(/\s+/g," ").trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const summaryRows: [string, string][] = [
+    ...(opts.contact?.name ? [["Client", clientText(opts.contact.name)] as [string, string]] : []),
+    ...(opts.contact?.phone ? [["Telefon", clientText(opts.contact.phone)] as [string, string]] : []),
+    ...(opts.contact?.city ? [["Localitate", clientText(opts.contact.city)] as [string, string]] : []),
     ["Configuratie", layoutLabel(layout)],
     ["Colectie", collectionLabel(collection)],
     ["Buget orientativ", budgetLabel(budget?.range)],
@@ -125,14 +134,16 @@ export function createKitchenPDF(opts: PDFExportOptions) {
     ["Centrala", constraints?.boiler ? "Da" : "Nu"],
   ];
 
+  doc.setFontSize(9);
   summaryRows.forEach(([k, v]) => {
     doc.setFont("helvetica", "bold");
     doc.setTextColor(15, 14, 13);
     doc.text(k, margin, y);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(107, 101, 96);
-    doc.text(v, 65, y);
-    y += 6;
+    const valueLines = doc.splitTextToSize(v, k === "Client" || k === "Telefon" || k === "Localitate" ? 92 : 100);
+    doc.text(valueLines, 65, y);
+    y += Math.max(6, valueLines.length * 5);
   });
 
   const swatchX = pageW - margin - 30;
@@ -205,27 +216,17 @@ doc.setFontSize(8);
 doc.setFont("helvetica", "normal");
 doc.setTextColor(15, 14, 13);
 
-if (cabinets.length % 2 === 0) {
-  doc.setFillColor(250, 250, 250);
-  doc.rect(margin, y - 4, pageW - margin * 2, 7, "F");
-}
-
-doc.text(worktopItem.sku, margin + 1, y);
-doc.text(
-  `${worktopItem.label} (${worktopDescription})`,
-  margin + 22,
-  y
-);
-doc.text(`${worktopLengthCm} cm`, margin + 90, y);
-doc.text("-", margin + 130, y);
-doc.text(
-  worktopPrice.toLocaleString("ro-RO"),
-  pageW - margin - 1,
-  y,
-  { align: "right" }
-);
-
-y += 7;
+const worktopLines = [worktopItem.sku, ...doc.splitTextToSize(`${worktopItem.label} (${worktopDescription})`,64)];
+const worktopDimLines = doc.splitTextToSize(`${worktopLengthCm} cm utili`,35);
+const worktopRowHeight = Math.max(8,Math.max(worktopLines.length,worktopDimLines.length)*3.5+2);
+if(y+worktopRowHeight>274){doc.addPage();y=20;}
+if(cabinets.length%2===0){doc.setFillColor(250,250,250);doc.rect(margin,y-4,178,worktopRowHeight,"F");}
+doc.text(String(cabinets.length+1),margin+1,y);
+doc.text(worktopLines,margin+22,y);
+doc.text(worktopDimLines,margin+90,y);
+doc.text("-",margin+130,y);
+doc.text(worktopPrice.toLocaleString("ro-RO"),pageW-margin-1,y,{align:"right"});
+y+=worktopRowHeight;
 
   y += 2;
   // Ensure total + button + footer fit — add page if needed
@@ -249,7 +250,16 @@ y += 7;
     doc.text(`${value.toLocaleString("ro-RO", { maximumFractionDigits: 2 })} RON`, pageW - margin, y, { align: "right" });
     y += 7;
   }
-  addCabinetPages(doc, { ...opts, technicalViews: (opts.technicalViews ?? []).filter(image => !isKitchenIsometric(image)) });
+  if (opts.configuratorUrl) {
+    if (y + 25 > 277) { doc.addPage(); y = 20; }
+    doc.setDrawColor(50);doc.setLineWidth(.3);doc.roundedRect(margin,y+3,178,10,1,1,"S");
+    doc.setFontSize(10);doc.setFont("helvetica","bold");doc.setTextColor(20);
+    doc.text("Vizualizeaza in configurator",105,y+9.5,{align:"center"});
+    doc.link(margin,y+3,178,10,{url:opts.configuratorUrl});
+    doc.setFontSize(7);doc.setFont("helvetica","normal");doc.text("Link catre configuratia exportata, valabil 30 de zile.",margin,y+18);
+  }
+  addCabinetPages(doc, { ...opts, technicalViews: (opts.technicalViews ?? []).filter(image => !isKitchenIsometric(image) && !image.label.startsWith("Plan de sus")) });
+  if (!planNearRenders) addDimensionedTopPlan(doc, opts);
 
   const footerY = 285;
   const totalPages = (doc as any).internal.getNumberOfPages();

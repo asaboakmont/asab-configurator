@@ -54,6 +54,46 @@ export async function buildKitchenPPTX(template: ArrayBuffer, opts: PDFExportOpt
     DATE: `Data: ${new Date().toLocaleDateString("ro-RO")}`,
     CONSULTANT: "ASAB Design",
   });
+  // Add native, editable customer fields beneath the existing cover information.
+  const cover = await read("ppt/slides/slide1.xml");
+  const clientShape = Array.from(cover.getElementsByTagNameNS(P, "sp")).find(sp => sp.getElementsByTagNameNS(P, "cNvPr")[0]?.getAttribute("name") === "CLIENT")!;
+  const allIds = Array.from(cover.getElementsByTagNameNS(P, "cNvPr")).map(node => Number(node.getAttribute("id")));
+  let nextId = Math.max(...allIds) + 1;
+  clientShape.getElementsByTagNameNS(A, "ext")[0].setAttribute("cy", "457200");
+  const bodyProperties = clientShape.getElementsByTagNameNS(A, "bodyPr")[0];
+  for (const inset of ["lIns", "rIns", "tIns", "bIns"]) bodyProperties.setAttribute(inset, "0");
+  bodyProperties.setAttribute("wrap", "square");
+  for (const [name, y] of [["DATE", 4500000], ["CONSULTANT", 4900050]] as const) {
+    const shape = Array.from(cover.getElementsByTagNameNS(P, "sp")).find(sp => sp.getElementsByTagNameNS(P, "cNvPr")[0]?.getAttribute("name") === name)!;
+    shape.getElementsByTagNameNS(A, "off")[0].setAttribute("y", String(y));
+  }
+  for (const [name, text, y] of [
+    ["CUSTOMER_PHONE", opts.contact?.phone ? `Telefon: ${opts.contact.phone}` : "", 5300100],
+    ["CUSTOMER_CITY", opts.contact?.city ? `Localitate: ${opts.contact.city}` : "", 5700150],
+  ] as const) {
+    const shape = clientShape.cloneNode(true) as Element;
+    const properties = shape.getElementsByTagNameNS(P, "cNvPr")[0];
+    properties.setAttribute("id", String(nextId++)); properties.setAttribute("name", name);
+    Array.from(properties.children).forEach(child => child.remove());
+    shape.getElementsByTagNameNS(A, "off")[0].setAttribute("y", String(y));
+    clientShape.parentNode!.appendChild(shape);
+    setText(cover, name, text);
+  }
+  if (opts.configuratorUrl) {
+    const shape = clientShape.cloneNode(true) as Element;
+    const properties = shape.getElementsByTagNameNS(P, "cNvPr")[0];
+    properties.setAttribute("id", String(nextId++)); properties.setAttribute("name", "CONFIGURATOR_CTA");
+    Array.from(properties.children).forEach(child => child.remove());
+    shape.getElementsByTagNameNS(A, "off")[0].setAttribute("y", "6200000");
+    shape.getElementsByTagNameNS(A, "ext")[0].setAttribute("cy", "190500");
+    clientShape.parentNode!.appendChild(shape); setText(cover, "CONFIGURATOR_CTA", "Vizualizeaza in configurator");
+    const run = shape.getElementsByTagNameNS(A, "rPr")[0];run.setAttribute("sz","1100");run.setAttribute("u","sng");
+    const click = cover.createElementNS(A,"a:hlinkClick");click.setAttributeNS(R,"r:id","rIdASABConfigurator");run.appendChild(click);
+    const rels = await read("ppt/slides/_rels/slide1.xml.rels");
+    const rel = rels.createElementNS(REL,"Relationship");rel.setAttribute("Id","rIdASABConfigurator");rel.setAttribute("Type",`${R}/hyperlink`);rel.setAttribute("Target",opts.configuratorUrl);rel.setAttribute("TargetMode","External");rels.documentElement.appendChild(rel);
+    write("ppt/slides/_rels/slide1.xml.rels",rels);
+  }
+  write("ppt/slides/slide1.xml", cover);
   await patch(4, {
     TITLE: "Dulapuri si blat",
     SUBTITLE: "Valoarea dulapurilor si a blatului",

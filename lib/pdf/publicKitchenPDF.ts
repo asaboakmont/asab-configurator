@@ -176,27 +176,15 @@ doc.setFontSize(8);
 doc.setFont("helvetica", "normal");
 doc.setTextColor(15, 14, 13);
 
-if (cabinets.length % 2 === 0) {
-  doc.setFillColor(250, 248, 244);
-  doc.rect(margin, y - 4, pageW - margin * 2, 7, "F");
-}
-
-doc.text(worktopItem.sku, margin + 1, y);
-doc.text(
-  `${worktopItem.label} (${worktopDescription})`,
-  margin + 22,
-  y
-);
-doc.text(`${worktopLengthCm} cm`, margin + 90, y);
-doc.text("-", margin + 130, y);
-doc.text(
-  worktopPrice.toLocaleString("ro-RO"),
-  pageW - margin - 1,
-  y,
-  { align: "right" }
-);
-
-y += 7;
+const skuLines=doc.splitTextToSize(worktopItem.sku,17);
+const descriptionLines=doc.splitTextToSize(`${worktopItem.label} (${worktopDescription})`,64);
+const rowHeight=Math.max(7,Math.max(skuLines.length,descriptionLines.length)*3.5+2);
+if(y+rowHeight>274){doc.addPage();y=20;}
+if(cabinets.length%2===0){doc.setFillColor(250,250,250);doc.rect(margin,y-4,178,rowHeight,"F");}
+doc.text(skuLines,margin+1,y);doc.text(descriptionLines,margin+22,y);
+doc.text(`${worktopLengthCm} cm`,margin+90,y);doc.text("-",margin+130,y);
+doc.text(worktopPrice.toLocaleString("ro-RO"),pageW-margin-1,y,{align:"right"});
+y+=rowHeight;
 
   y += 2;
   // Ensure total + button + footer fit — add page if needed

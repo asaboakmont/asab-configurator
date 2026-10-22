@@ -113,6 +113,7 @@ export async function captureTechnicalViews(source: THREE.Scene, cabinets: Cabin
     if(kitchen)images.unshift(kitchen);
     const top=render(kitchenRoots,new THREE.Vector3(0,1,0),"Plan de sus - contur din modelele 3D",true);
     if(top)images.push(top);
-    return {images,cabinetImages,warnings};
+    const worktopImage = render(worktopAndPlinths.filter(o=>o.userData.asab?.category==="worktop"),isometricDirection.clone(),"Blat - vedere izometrica");
+    return {images,cabinetImages,warnings,worktopImage};
   } finally {renderer.dispose();renderer.forceContextLoss();}
 }
