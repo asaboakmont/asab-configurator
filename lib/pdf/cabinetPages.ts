@@ -55,7 +55,7 @@ export function addCabinetPages(doc:jsPDF,opts:PDFExportOptions){
     doc.setDrawColor(150);doc.setLineWidth(.2);doc.setFillColor(238,238,238);doc.rect(16,top,178,8,"FD");
     doc.line(145,top,145,top+8);
     line(`Corpul ${cIndex+1}`,19,top+5.5,10,true);
-    doc.setFont("helvetica","bold");doc.setFontSize(9);doc.text(`${c.price.toFixed(2)} RON`,191,top+5.5,{align:"right"});
+    doc.setFont("helvetica","bold");doc.setFontSize(9);doc.text(c.pricePending ? "Pret de confirmat" : `${c.price.toFixed(2)} RON`,191,top+5.5,{align:"right"});
     // Native PDF table rules make SKU, name and price easy to scan and print.
     for(const [dy,height] of [[8,9],[17,14],[31,6],[37,6]] as const)doc.rect(16,top+dy,178,height);
     doc.line(36,top+8,36,top+31);
@@ -69,11 +69,12 @@ export function addCabinetPages(doc:jsPDF,opts:PDFExportOptions){
     doc.setFillColor(247,247,247);doc.rect(16,top+43,178,6,"FD");doc.line(105,top+43,105,top+100);
     const actual=opts.cabinetViews?.find(v=>v.cabinetId===cabinetKey(c));
     line(actual?"Exterior":"Exterior schematic",19,top+47.3,8,true);
-    line(actual?.interior?"Interior":"Interior schematic",108,top+47.3,8,true);
+    line(c.designPiece ? (c.designPiece.kind==="worktop"?"Plan L x A":"Profil H x A") : actual?.interior?"Interior":"Interior schematic",108,top+47.3,8,true);
     doc.rect(16,top+49,178,51);
     const image=(img:{dataUrl:string;aspect:number},left:number)=>{const h=Math.min(45,82*img.aspect),w=h/img.aspect;doc.addImage(img.dataUrl,"PNG",left+(89-w)/2,top+52,w,h,undefined,"FAST");};
     if(actual)image(actual.image,16);else drawCabinetSchematic(doc,c,20,top+50,80,48,false);
-    if(actual?.interior)image(actual.interior,105);else drawCabinetSchematic(doc,c,109,top+50,80,48,true);
+    if(c.designPiece)drawCabinetSchematic(doc,{...c,...(c.designPiece.kind==="worktop"?{height:c.depth}:{width:c.depth})},109,top+50,80,48,false);else if(actual?.interior)image(actual.interior,105);else drawCabinetSchematic(doc,c,109,top+50,80,48,true);
+    if(c.finishOverride){line(`Finisaj individual: ${c.finishOverride.doorHex ?? c.finishOverride.worktopHex ?? ""} ${c.finishOverride.handle ?? ""}`,19,top+111,7);}
     if(c.pricingNote){doc.setFontSize(7);doc.setFont("helvetica","normal");doc.text(doc.splitTextToSize(clean(c.pricingNote),178),16,top+104);}
   }
   if(opts.cabinets.length) addWorktopPage(doc,opts);

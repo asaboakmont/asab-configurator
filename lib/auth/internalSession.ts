@@ -57,6 +57,7 @@ export function usesInternalCabinetFeatures(value: unknown): boolean {
       ? nested.cabinets
       : [];
 
+  if ([record.colorway, nested?.colorway].some(c => !!c && typeof c === 'object' && ((c as Record<string,unknown>).handle === 'auriu' || (c as Record<string,unknown>).plinth === 'auriu'))) return true;
   if (record.internalPreview === true || nested?.internalPreview === true || record.collection === 'smart' || nested?.collection === 'smart') return true;
   return cabinets.some((cabinet) => {
     if (!cabinet || typeof cabinet !== "object") return false;
@@ -64,7 +65,7 @@ export function usesInternalCabinetFeatures(value: unknown): boolean {
     return (typeof item.sku === 'string' && /^(ASAB-|ASB-SINA)/.test(item.sku)) ||
       (typeof item.baseSku === 'string' && /^(ASAB-|ASB-SINA)/.test(item.baseSku)) || !!item.drainerSku ||
       (typeof item.mountHeightCm === 'number' && item.mountHeightCm !== 0 && item.mountHeightCm !== 146.9) ||
-      !!item.catalogProduct || item.isCustom === true ||
+      !!item.designPiece || !!item.finishOverride || !!item.runWorktopOverride || !!item.runWorktopDimensions || !!item.catalogProduct || item.isCustom === true ||
       item.placementMode === "free" ||
       (typeof item.standardWidth === "number" && typeof item.width === "number" && item.standardWidth !== item.width);
   });

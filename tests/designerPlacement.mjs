@@ -8,7 +8,8 @@ const selected = source.statements.filter(node => ts.isFunctionDeclaration(node)
 const code = ts.transpileModule(selected.map(node => node.getText(source)).join('\n'), { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText;
 const rulesSource = readFileSync(new URL('../lib/rules/resolver.ts', import.meta.url), 'utf8');
 const rules = Object.fromEntries(['WALL_DEPTH', 'BASE_DEPTH'].map(key => [key, Number(rulesSource.match(new RegExp(key + ':\\s*(\\d+)'))[1])]));
-const placement = {}; new Function('exports', ts.transpileModule(readFileSync(new URL('../lib/asab/cabinetPlacement.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText)(placement);
+const pieces={}; new Function('exports',ts.transpileModule(readFileSync(new URL('../lib/asab/designPieces.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText)(pieces);
+const placement = {}; new Function('require','exports', ts.transpileModule(readFileSync(new URL('../lib/asab/cabinetPlacement.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText)(()=>pieces,placement);
 const { getEditableWalls, editorWallEnd, isValidEditorSlot } = new Function('RULES', 'cabinetVerticalRange', 'cabinetWallGapCm', code + '\nreturn {getEditableWalls, editorWallEnd, isValidEditorSlot};')(rules, placement.cabinetVerticalRange, placement.cabinetWallGapCm);
 assert.deepEqual(getEditableWalls([], true).map(w => w.id), ['A', 'B', 'C']);
 assert.deepEqual(getEditableWalls([], false).map(w => w.id), ['A']);

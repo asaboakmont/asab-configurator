@@ -80,7 +80,16 @@ export type CabinetType =
   | "tall" | "tall-oven" | "tall-fridge"
   | "panel" | "accessory";
 
+export type DesignPieceKind = "filler" | "end-panel" | "worktop";
+export type CabinetBand = "base" | "wall" | "tall";
 export interface Cabinet {
+  designPiece?: { kind: DesignPieceKind; band: CabinetBand; replacesRun?: WallSide };
+  finishOverride?: Partial<Colorway>;
+  /** Optional finish of the automatic worktop over this cabinet's run. */
+  runWorktopDimensions?: { startCm: number; lengthCm: number };
+  runWorktopOverride?: Pick<Colorway, "worktop" | "worktopHex">;
+  pricePending?: boolean;
+  manualPrice?: number;
   drainerSku?: string;
   mountHeightCm?: number;
   displaySku?: string;
@@ -147,13 +156,13 @@ export interface Colorway {
   handleHex:  string;
   plinthHex?: string;
   worktop:    WorktopStyle;
-  handle:     "inox" | "negru-mat";
-  plinth?:    "inox" | "negru-mat";
+  handle:     "inox" | "negru-mat" | "auriu";
+  plinth?:    "inox" | "negru-mat" | "auriu";
 }
 
 export type WorktopStyle = "stejar" | "gri-piatra" | "darkwood" | "white-stone";
 
-export type HandleStyle = "inox" | "negru-mat";
+export type HandleStyle = "inox" | "negru-mat" | "auriu";
 
 export type RoomWall = Extract<WallSide, "A" | "B" | "C">;
 

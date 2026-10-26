@@ -100,7 +100,11 @@ export const useConfigStore = create<ConfiguratorStore>((set, get) => ({
   setLayout:     (layout)   => set({ layout }),
   setDimensions: (d)        => set((s) => ({ dimensions: { ...s.dimensions, ...d } })),
   setAppliances: (a)        => set((s) => ({ appliances: { ...s.appliances, ...a } })),
-  setColorway:   (colorway) => set({ colorway }),
+  setColorway: (colorway) => {
+    const state=get();
+    const {original,discounted}=calcTotalPrice(state.cabinets,state.dimensions.wallA,state.dimensions.wallB,state.layout,colorway.worktop);
+    set({colorway,originalPrice:original,totalPrice:discounted});
+  },
   setConstraints: (c)       => set((s) => ({ constraints: { ...s.constraints, ...c } })),
   addOpening: (type) => set((s) => ({
     constraints: {
@@ -203,7 +207,7 @@ export const useConfigStore = create<ConfiguratorStore>((set, get) => ({
     const previous = get().internalRole;
     set({ internalRole, internalSessionReady: true, devConstraintsUnlocked: internalRole !== null });
     if (previous && !internalRole) {
-      set({ collection: get().collection === 'smart' ? 'japandi' : get().collection, dimensions: { ...get().dimensions, height: 240 } });
+      set({ colorway: { ...get().colorway, ...(get().colorway.handle === 'auriu' ? {handle:'inox' as const,handleHex:'#C0C0C0'} : {}), ...(get().colorway.plinth === 'auriu' ? {plinth:'inox' as const,plinthHex:'#C0C0C0'} : {}) }, collection: get().collection === 'smart' ? 'japandi' : get().collection, dimensions: { ...get().dimensions, height: 240 } });
       if (get().cabinets.length) get().generate();
     } else if (!previous && internalRole && get().cabinets.length) get().restoreCabinets(get().cabinets);
   },
@@ -215,7 +219,7 @@ export const useConfigStore = create<ConfiguratorStore>((set, get) => ({
       collectionCabinets,
       dimensions.wallA,
       dimensions.wallB,
-      layout
+      layout, get().colorway.worktop
     );
     set({ cabinets: collectionCabinets, totalPrice: discounted, originalPrice: original });
   },
@@ -245,7 +249,7 @@ export const useConfigStore = create<ConfiguratorStore>((set, get) => ({
       cabinets.map((cabinet, index) => normalizeCabinet(cabinet, index)),
       collection
     );
-    const { original, discounted } = calcTotalPrice(collectionCabinets, normalizedDimensions.wallA, normalizedDimensions.wallB, resolvedLayout);
+    const { original, discounted } = calcTotalPrice(collectionCabinets, normalizedDimensions.wallA, normalizedDimensions.wallB, resolvedLayout, get().colorway.worktop);
     const hasIsland = resolvedLayout === "island" || normalizedDimensions.hasIsland === true;
     const layoutWarnings = hasIsland
       ? [

@@ -1,3 +1,4 @@
+import { designPieceWallGapCm } from "@/lib/asab/designPieces";
 import type { Cabinet } from '@/types/kitchen';
 
 export const HANGING_TOP_CM = 220;
@@ -21,7 +22,9 @@ export function legacyWallCornerSku(cabinet: Pick<Cabinet, 'type' | 'sku' | 'bas
   return left ? '2001-STG' : '2001-DR';
 }
 
-export function cabinetWallGapCm(cabinet: Pick<Cabinet, 'type'>): number {
+export function cabinetWallGapCm(cabinet: Pick<Cabinet, 'type'> & Partial<Pick<Cabinet, 'designPiece' | 'depth'>>): number {
+  if (cabinet.designPiece) return designPieceWallGapCm(cabinet);
+
   return cabinet.type === 'accessory' || cabinet.type.startsWith('tall') ? 0 : cabinet.type.startsWith('wall') ? 1.5 : 5;
 }
 

@@ -48,7 +48,7 @@ export default function StepStyle() {
 
   const updateHandle = (handleId: string) => {
     const opt = HANDLE_OPTIONS.find(h => h.id === handleId);
-    if (opt) setColorway({ ...colorway, handle: opt.id as "inox" | "negru-mat", handleHex: opt.hex });
+    if (opt) setColorway({ ...colorway, handle: opt.id, handleHex: opt.hex });
   };
 
   const worktopPreviewStyle = (worktop: { hex: string; texture?: string }) =>
@@ -138,7 +138,7 @@ export default function StepStyle() {
       <div>
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Manere 128mm</p>
         <div className="grid grid-cols-2 gap-3">
-          {HANDLE_OPTIONS.map((h) => (
+          {HANDLE_OPTIONS.filter(h => internalRole || h.id !== "auriu").map((h) => (
             <button key={h.id} onClick={() => updateHandle(h.id)}
               className={["flex items-center gap-3 p-3 rounded-xl border transition-all",
                 colorway.handle === h.id ? "border-gray-900" : "border-gray-200 hover:border-gray-400"].join(" ")}>

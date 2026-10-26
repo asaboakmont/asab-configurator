@@ -3,8 +3,8 @@ import type { PDFExportOptions } from "@/lib/pdf/exportPDF";
 import { calculateExportPricing,worktopProduct } from "@/lib/pricing/exportPricing";
 
 export function addWorktopPage(doc:jsPDF,opts:PDFExportOptions){
-  const p=calculateExportPricing(opts.cabinets,opts.layout,opts.dimensions);if(!p.worktopLengthCm)return;
-  const product=worktopProduct(opts.colorway.worktop);
+  const p=calculateExportPricing(opts.cabinets,opts.layout,opts.dimensions,opts.colorway.worktop);if(!p.worktopLengthCm)return;
+  const product=p.stockByFinish.length>1?{label:"Blat - finisaje mixte",sku:"BL-MIXT"}:worktopProduct(p.stockByFinish[0]?.finish??opts.colorway.worktop);
   const line=(s:string,x:number,y:number,size=9,bold=false)=>{doc.setTextColor(20);doc.setFont("helvetica",bold?"bold":"normal");doc.setFontSize(size);doc.text(s,x,y);};
   doc.addPage();line("ASAB DESIGN",16,17,10,true);line("Blat - detalii",16,30,16,true);
   doc.setDrawColor(150);doc.setLineWidth(.2);doc.setFillColor(238,238,238);doc.rect(16,40,178,9,"FD");
@@ -15,9 +15,14 @@ export function addWorktopPage(doc:jsPDF,opts:PDFExportOptions){
   if(opts.worktopView){const h=Math.min(105,178*opts.worktopView.aspect),w=h/opts.worktopView.aspect;doc.addImage(opts.worktopView.dataUrl,"PNG",16+(178-w)/2,96,w,h,undefined,"FAST");}
   else drawWorktopIsometric(doc,p.worktopCuts,opts,96);
   y=209;line("TRONSOANE UTILE (L x A x G, mm)",16,y,9,true);y+=7;
-  for(const cut of p.worktopCuts){line(`${cut.run}: ${Math.round(cut.lengthCm*10)} x 600 x 38`,19,y);y+=6;}
+  for(const cut of p.worktopCuts){
+    const wall=cut.run==="Insula"?"I":cut.run==="Peninsula"?"P":cut.run;
+    const finish=opts.cabinets.find(c=>c.wall===wall&&c.runWorktopOverride)?.runWorktopOverride;
+    const product=worktopProduct(finish?.worktop??opts.colorway.worktop);
+    line(`${cut.run}: ${Math.round(cut.lengthCm*10)} x 600 x 38 | ${product.label} (${product.sku})`,19,y,8);y+=6;
+  }
   line(`Achizitie: ${p.stockLengthCm*10} mm | Rest nominal: ${Math.round((p.stockLengthCm-p.worktopLengthCm)*10)} mm`,16,y+3,8);
-  const notes=[...(opts.layout==="l-shape"?["Racordul de colt de 600 mm este contabilizat o singura data."]:[]),"Plan nominal de debitare; pierderile de taiere si rosturile se confirma la montaj.",...(p.worktopCuts.some(c=>c.lengthCm>410)?["Tronsoanele peste 4100 mm necesita imbinare."]:[])];
+  const notes=[...(opts.layout==="l-shape"?[`Racord comun dedus o singura data: ${Math.round(p.jointOverlapCm*10)} mm.`]:[]),"Plan nominal de debitare; pierderile de taiere si rosturile se confirma la montaj.",...(p.worktopCuts.some(c=>c.lengthCm>410)?["Tronsoanele peste 4100 mm necesita imbinare."]:[])];
   for(const note of notes){y+=8;line(note,16,y,7.5);}
   if(opts.configuratorUrl){line("Vizualizeaza in configurator",70,277,9,true);doc.link(70,273,75,7,{url:opts.configuratorUrl});}
 }

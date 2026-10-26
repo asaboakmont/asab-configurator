@@ -1,5 +1,8 @@
 "use client";
 import { cabinetBottomCm, cabinetWallGapCm, legacyWallCornerSku } from '@/lib/asab/cabinetPlacement';
+import { automaticWorktopSpan, isWorktopSupport, isPlinthSupport } from "@/lib/asab/worktopRuns";
+import DesignPieceMesh from "./DesignPieceMesh";
+import { effectiveCabinetColorway } from "@/lib/asab/designPieces";
 import NativeCabinetModel from "./NativeCabinetModel";
 import ConfiguratorPerformanceMonitor from "./ConfiguratorPerformanceMonitor";
 import NativePerformanceProbe, { type NativeFrameSample } from "./NativePerformanceProbe";
@@ -15,7 +18,7 @@ import type { Cabinet, Colorway, DesignCollectionId, Obstruction, RoomConstraint
 import { cabinetExportData, cabinetObjectName } from "@/lib/asab/exportGLB";
 import { RULES } from "@/lib/rules/resolver";
 import { handleScaleCompensation } from "@/lib/asab/handleScaling";
-import { bakeCabinetMeshGeometry, cornerModelAnchor } from "@/lib/asab/cabinetModelGeometry";
+import { bakeCabinetMeshGeometry, cornerModelAnchor, calibrateWallCornerGeometry } from "@/lib/asab/cabinetModelGeometry";
 import { cabinetWidthScale } from "@/lib/asab/cabinetSizing";
 import { getSkuByCode, stripCollectionSku } from "@/data/skus";
 
@@ -341,7 +344,7 @@ export default function KitchenScene({
           key={key}
           cabinet={cab}
           internalPreview={internalPreview}
-          colorway={colorway}
+          colorway={internalPreview ? effectiveCabinetColorway(cab, colorway) : colorway}
           wallA={wallA}
           cornerSide={cornerSide}
           collection={collection}
@@ -355,12 +358,7 @@ export default function KitchenScene({
       })}
 
       <WorktopMerged
-        cabinets={cabinets.filter(
-          (c) =>
-            !["wall", "wall-corner", "wall-hood", "tall", "tall-oven", "tall-fridge"].includes(
-              c.type
-            )
-        )}
+        cabinets={cabinets}
         colorway={colorway}
         wallA={wallA}
       />
@@ -1628,6 +1626,7 @@ class GLBErrorBoundary extends React.Component<
 
 function CabinetMeshGLB({
   cabinet,
+  alignWallCorner = false,
   colorway,
   collection,
   posX,
@@ -1644,6 +1643,7 @@ function CabinetMeshGLB({
   posZ: number;
   rotY: number;
   doorDirection: "S" | "D";
+  alignWallCorner?: boolean;
 }) {
   const { sku } = cabinet;
   const baseSku = legacyWallCornerSku(cabinet) ?? cabinet.baseSku ?? stripCollectionSku(sku);
@@ -1685,8 +1685,8 @@ function CabinetMeshGLB({
     () =>
       new THREE.MeshStandardMaterial({
         color: colorway.handleHex,
-        roughness: colorway.handle === "inox" ? 0.28 : 0.46,
-        metalness: colorway.handle === "inox" ? 0.32 : 0.08,
+        roughness: colorway.handle !== "negru-mat" ? 0.28 : 0.46,
+        metalness: colorway.handle !== "negru-mat" ? 0.32 : 0.08,
         envMapIntensity: 0.55,
         depthWrite: true,
         depthTest: true,
@@ -1779,6 +1779,8 @@ function CabinetMeshGLB({
             const cornerAnchor = cabinet.type.includes("corner")
               ? cornerModelAnchor(gltf.scene, baseSku.includes("STG")) : null;
 
+            const cornerBounds = alignWallCorner && cornerAnchor ? new THREE.Box3().setFromObject(gltf.scene).applyMatrix4(cornerAnchor) : undefined;
+
             gltf.scene.traverse((child: any) => {
               if (!child.isMesh || !child.geometry) return;
 
@@ -1790,6 +1792,7 @@ function CabinetMeshGLB({
 
               const geometry = bakeCabinetMeshGeometry(child);
               if (cornerAnchor) geometry.applyMatrix4(cornerAnchor);
+              if (cornerBounds) calibrateWallCornerGeometry(geometry, cornerBounds.max.x, cornerBounds.max.z, baseSku.includes("STG"), matName === "handle");
 
               if (geometry.attributes.color) {
                 geometry.deleteAttribute("color");
@@ -1844,7 +1847,7 @@ function CabinetMeshGLB({
     return () => {
       cancelled = true;
     };
-  }, [baseSku, collection, loadAttempt, cabinet.type]);
+  }, [baseSku, collection, loadAttempt, cabinet.type, alignWallCorner]);
 
   const matMap: Record<string, THREE.Material> = {
     carcass: carcassMat,
@@ -2345,7 +2348,11 @@ function ViewportAddButton({
   );
 }
 
-function CabinetMesh({
+function CabinetMesh(props: Parameters<typeof StandardCabinetMesh>[0]) {
+  if (props.internalPreview && props.cabinet.designPiece) return <DesignPieceMesh {...props} />;
+  return <StandardCabinetMesh {...props} />;
+}
+function StandardCabinetMesh({
   cabinet,
   internalPreview = false,
   colorway,
@@ -2455,8 +2462,8 @@ function CabinetMesh({
     () =>
       new THREE.MeshStandardMaterial({
         color: colorway.handleHex,
-        roughness: colorway.handle === "inox" ? 0.28 : 0.46,
-        metalness: colorway.handle === "inox" ? 0.32 : 0.08,
+        roughness: colorway.handle !== "negru-mat" ? 0.28 : 0.46,
+        metalness: colorway.handle !== "negru-mat" ? 0.32 : 0.08,
         envMapIntensity: 0.55,
         depthWrite: true,
         depthTest: true,
@@ -2644,6 +2651,7 @@ function CabinetMesh({
         <GLBErrorBoundary fallback={fallback} resetKey={`${collection}-${cabinet.baseSku ?? cabinet.sku}-${width}-${height}-${depth}`}>
           <React.Suspense fallback={null}>
             <CabinetMeshGLB
+              alignWallCorner={internalPreview && type === "wall-corner"}
               key={`${collection}-${cabinet.baseSku ?? stripCollectionSku(cabinet.sku)}`}
               cabinet={cabinet}
               colorway={colorway}
@@ -2842,7 +2850,16 @@ function CabinetMesh({
   );
 }
 
-function WorktopMerged({
+function WorktopMerged(props: { cabinets: Cabinet[]; colorway: Colorway; wallA: number }) {
+  return <>{(["A", "B", "C", "I", "P"] as const).map(wall => {
+    if (props.cabinets.some(c => c.designPiece?.replacesRun === wall)) return null;
+    const run = props.cabinets.filter(c => c.wall === wall && isWorktopSupport(c));
+    if (!run.length) return null;
+    const override = run.find(c => c.runWorktopOverride)?.runWorktopOverride;
+    return <WorktopRun key={wall} {...props} cabinets={run} colorway={{ ...props.colorway, ...override }} />;
+  })}</>;
+}
+function WorktopRun({
   cabinets,
   colorway,
   wallA,
@@ -2868,20 +2885,14 @@ function WorktopMerged({
     texture.repeat.set(2, 1);
     return new THREE.MeshStandardMaterial({
       map: texture,
-      color:
-        colorway.worktop === "stejar"
-          ? "#d4b896"
-          : colorway.worktop === "darkwood"
-          ? "#3f3328"
-          : isWhiteStone
-          ? "#faf8f2"
-          : "#7a7570",
+      color: colorway.worktop === "stejar" ? "#d4b896" : colorway.worktop === "darkwood" ? "#3f3328" : colorway.worktop === "white-stone" ? "#faf8f2" : "#7a7570",
       roughness: isWood ? 0.8 : isWhiteStone ? 0.82 : 0.9,
       metalness: 0.0,
       envMapIntensity: isWood ? 0.25 : isWhiteStone ? 0.34 : 0.45,
     });
   }, [colorway.worktop]);
 
+  React.useEffect(() => () => { mat.map?.dispose(); mat.dispose(); }, [mat]);
   const wT = RULES.WORKTOP_THICKNESS * CM;
   const wD = RULES.WORKTOP_DEPTH * CM;
   const CORNER_EXT = RULES.CORNER_BASE_OFFSET * CM;
@@ -2901,10 +2912,9 @@ function WorktopMerged({
         const wallCabs = cabinets.filter((c) => c.wall === wall && c.placementMode !== "free");
         if (wallCabs.length === 0) return null;
 
-        const minX = Math.min(...wallCabs.map((c) => c.xPos));
-        const maxX = Math.max(...wallCabs.map((c) => c.xPos + c.width));
-        const totalWidth = (maxX - minX) * CM;
-        const centerX = (minX + (maxX - minX) / 2) * CM;
+        const span = automaticWorktopSpan(wallCabs, wall)!;
+        const totalWidth = span.lengthCm * CM;
+        const centerX = (span.startCm + span.lengthCm / 2) * CM;
 
         if (wall === "B") {
           return (
@@ -2912,8 +2922,8 @@ function WorktopMerged({
               name="WORKTOP_B"
               key="wt-B"
               material={mat}
-              position={[WORKTOP_Z, WORKTOP_Y + WORKTOP_VISUAL_RAISE, centerX - CORNER_EXT / 2]}
-              size={[wD, wT, totalWidth + CORNER_EXT]}
+              position={[WORKTOP_Z, WORKTOP_Y + WORKTOP_VISUAL_RAISE, centerX]}
+              size={[wD, wT, totalWidth]}
               edgeColor={worktopLineColor}
               edgeOpacity={worktopLineOpacity}
             />
@@ -2926,8 +2936,8 @@ function WorktopMerged({
               name="WORKTOP_C"
               key="wt-C"
               material={mat}
-              position={[wallA * CM - WORKTOP_Z, WORKTOP_Y + WORKTOP_VISUAL_RAISE, centerX - CORNER_EXT / 2]}
-              size={[wD, wT, totalWidth + CORNER_EXT]}
+              position={[wallA * CM - WORKTOP_Z, WORKTOP_Y + WORKTOP_VISUAL_RAISE, centerX]}
+              size={[wD, wT, totalWidth]}
               edgeColor={worktopLineColor}
               edgeOpacity={worktopLineOpacity}
             />
@@ -3043,9 +3053,7 @@ function RunKickerPlinths({
   const lJoinOverlap = 5 * CM;
   const wallAJoinOverlap = 10 * CM;
   const cornerFillerShift = 10 * CM;
-  const runCabinets = cabinets.filter(
-    (cabinet) => cabinet.placementMode !== "free" && !["wall", "wall-corner", "wall-hood"].includes(cabinet.type)
-  );
+  const runCabinets = cabinets.filter(isPlinthSupport);
   const hasLeftLRun = !!wallB && cornerSide === "right" && runCabinets.some((cabinet) => cabinet.wall === "B");
   const hasRightLRun = !!wallB && cornerSide === "left" && runCabinets.some((cabinet) => cabinet.wall === "C");
   const strips: Array<{

@@ -25,6 +25,7 @@ export function cabinetExportData(cabinet: Cabinet & { id?: string }, colorway: 
       : undefined,
     rotationYDegrees: isFree ? cabinet.rotationYDegrees ?? 0 : undefined,
     placement: { wall: isFree ? null : cabinet.wall, xPos: cabinet.xPos, zPos: cabinet.zPos, runSide: cabinet.runSide },
+    designPiece: cabinet.designPiece, finishOverride: cabinet.finishOverride, pricePending: cabinet.pricePending,
     drainerSku: cabinet.drainerSku,
     mountHeightCm: cabinet.mountHeightCm,
     price: cabinet.price,

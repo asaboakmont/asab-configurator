@@ -48,7 +48,7 @@ export async function buildKitchenPPTX(template: ArrayBuffer, opts: PDFExportOpt
     Object.entries(values).forEach(([name, value]) => setText(doc, name, value));
     write(path, doc);
   };
-  const { cabinetSubtotal, worktopPrice, worktopDescription, total } = calculateExportPricing(opts.cabinets, opts.layout, opts.dimensions);
+  const { cabinetSubtotal, worktopPrice, worktopDescription, total } = calculateExportPricing(opts.cabinets, opts.layout, opts.dimensions, opts.colorway.worktop);
   const project = `ASAB-${new Date().toISOString().slice(0, 10)}`;
   await patch(1, {
     CLIENT: `Client: ${opts.contact?.name || ""}`,
@@ -103,8 +103,8 @@ export async function buildKitchenPPTX(template: ArrayBuffer, opts: PDFExportOpt
     LEAD_TIME_LABEL: "Blat", LEAD_TIME: money(worktopPrice),
     ADVANCE_LABEL: "Numar corpuri", ADVANCE: String(opts.cabinets.length),
     WORKTOP_LINE: `Blat inclus: ${worktopDescription || "0 cm"}.`,
-    TOTAL_LABEL: "TOTAL DULAPURI + BLAT", GRAND_TOTAL: money(total),
-    TOTAL_NOTE: "Pret estimativ. TVA, transportul si montajul nu sunt incluse.",
+    TOTAL_LABEL: opts.cabinets.some(c=>c.pricePending) ? "TOTAL PARTIAL" : "TOTAL DULAPURI + BLAT", GRAND_TOTAL: money(total),
+    TOTAL_NOTE: opts.cabinets.some(c=>c.pricePending) ? "Piese cu pret de confirmat: oferta incompleta. TVA inclus; transport si montaj separat." : "Pret estimativ, TVA inclus. Transportul si montajul se confirma separat.",
   });
 
   const listTemplate = await zip.file("ppt/slides/slide2.xml")!.async("string");
@@ -120,11 +120,11 @@ export async function buildKitchenPPTX(template: ArrayBuffer, opts: PDFExportOpt
     const doc = parse(listTemplate);
     setText(doc, "PROJECT_ID", `Proiect: ${project}`);
     setText(doc, "SUBTITLE", `${opts.colorway.name} / ${opts.collection ?? "Japandi"}`);
-    setText(doc, "NOTES", "Dimensiuni L x H x A in cm. Preturi dulapuri.");
+    setText(doc, "NOTES", opts.cabinets.some(c=>c.pricePending) ? "TOTAL PARTIAL. Piese cu pret de confirmat." : "Dimensiuni L x H x A in cm. Preturi dulapuri.");
     for (let i = 0; i < 12; i++) {
       const cabinet = opts.cabinets[page * 12 + i];
       setText(doc, `CABINET_${i + 1}`, cabinet
-        ? `${page * 12 + i + 1}. ${cabinetDocumentSku(cabinet)}${cabinet.drainerSku ? " + scurgator inclus" : ""}${cabinet.isCustom ? " ***dimensiune personalizata" : ""} / ${cabinet.width}x${cabinet.height}x${cabinet.depth} / ${cabinet.placementMode === "free" ? "Liber" : cabinet.wall} / ${money(cabinet.price ?? 0)}`
+        ? `${page * 12 + i + 1}. ${cabinetDocumentSku(cabinet)}${cabinet.drainerSku ? " + scurgator inclus" : ""}${cabinet.isCustom ? " ***dimensiune personalizata" : ""} / ${cabinet.width}x${cabinet.height}x${cabinet.depth} / ${cabinet.placementMode === "free" ? "Liber" : cabinet.wall} / ${cabinet.pricePending ? "Pret de confirmat" : money(cabinet.price ?? 0)}${cabinet.finishOverride ? ` / Finisaj: ${cabinet.finishOverride.doorHex ?? cabinet.finishOverride.worktopHex ?? ""} ${cabinet.finishOverride.handle ?? ""}` : ""}`
         : "");
     }
     write(`ppt/slides/slide${number}.xml`, doc);

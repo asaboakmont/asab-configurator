@@ -5,7 +5,8 @@ const module = { exports: {} };
 const code = ts.transpileModule(readFileSync(new URL('../lib/pricing/exportPricing.ts', import.meta.url), 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
 }).outputText;
-new Function('exports', code)(module.exports);
+const runs={};new Function('exports',ts.transpileModule(readFileSync(new URL('../lib/asab/worktopRuns.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(runs);
+new Function('require','exports', code)(()=>runs,module.exports);
 const { calculateExportPricing } = module.exports;
 const cabinets = [{ price: 1000 }, { price: 500 }];
 for (const [length, price] of [[0, 0], [205, 370], [206, 740], [410, 740], [411, 1110], [615, 1110], [616, 1480]]) {

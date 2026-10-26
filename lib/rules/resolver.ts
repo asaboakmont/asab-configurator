@@ -1719,7 +1719,7 @@ function getOpeningConflicts(cab: Cabinet, constraints: RoomConstraints): Cabine
 
 export const CABINET_DISCOUNT = 0;
 
-export function calcTotalPrice(cabinets: Cabinet[], wallA: number, wallB?: number, layout?: LayoutType): { original: number; discounted: number } {
-  const { total } = calculateExportPricing(cabinets, layout ?? "linear", { wallA, wallB, height: 0 });
+export function calcTotalPrice(cabinets: Cabinet[], wallA: number, wallB?: number, layout?: LayoutType, worktopStyle?: string): { original: number; discounted: number } {
+  const { total } = calculateExportPricing(cabinets, layout ?? "linear", { wallA, wallB, height: 0 }, worktopStyle);
   return { original: total, discounted: total };
 }

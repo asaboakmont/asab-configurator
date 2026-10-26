@@ -28,6 +28,7 @@ export const COLORWAYS: Colorway[] = [
 ];
 
 export const HANDLE_OPTIONS = [
+  { id: "auriu", label: "Auriu", hex: "#C7A34B" },
   { id: "inox",      label: "Inox",      hex: INOX  },
   { id: "negru-mat", label: "Negru Mat", hex: NEGRU },
 ] as const;

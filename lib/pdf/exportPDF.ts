@@ -124,7 +124,7 @@ export function createKitchenPDF(opts: PDFExportOptions) {
       : []),
     ["Inaltime",     `${dimensions.height} cm`],
     ["Culoare",      `${colorway.name} (${colorway.finish})`],
-    ["Manere",       handle === "inox" ? "Inox" : "Negru Mat"],
+    ["Manere",       handle === "inox" ? "Inox" : handle === "auriu" ? "Auriu" : "Negru Mat"],
     ["Pereti", wallColorLabel(roomFinishes?.wallColor)],
     ["Pardoseala", floorTextureLabel(roomFinishes?.floorTexture)],
     ["Faianta / backsplash", backsplashLabel(roomFinishes?.backsplashTexture)],
@@ -192,14 +192,14 @@ export function createKitchenPDF(opts: PDFExportOptions) {
     doc.text(labelLines, margin + 22, y);
     doc.text(`${cab.width}x${cab.height}x${cab.depth}`,  margin + 90,       y);
     doc.text(cab.placementMode === "free" ? "LIBER" : cab.wall, margin + 130, y);
-    doc.text(cab.price.toLocaleString("ro-RO"),          pageW - margin - 1, y, { align: "right" });
+    doc.text(cab.pricePending ? "De confirmat" : cab.price.toLocaleString("ro-RO"),          pageW - margin - 1, y, { align: "right" });
     y += rowHeight;
   });
 
   if (y > 270) { doc.addPage(); y = 20; }
 
   // Worktop row
-const { cabinetSubtotal, worktopLengthCm, worktopPrice, worktopDescription, total } = calculateExportPricing(cabinets, layout, dimensions);
+const { cabinetSubtotal, worktopLengthCm, worktopPrice, worktopDescription, total, stockByFinish } = calculateExportPricing(cabinets, layout, dimensions, colorway.worktop);
 
 const worktopLabels: Record<string, { label: string; sku: string }> = {
   stejar: { label: "Blat stejar", sku: "BL-STEJAR" },
@@ -209,9 +209,10 @@ const worktopLabels: Record<string, { label: string; sku: string }> = {
 };
 
 const worktopItem =
-  worktopLabels[colorway.worktop] ?? worktopLabels.stejar;
+  stockByFinish.length>1 ? {label:"Blat - finisaje mixte",sku:"BL-MIXT"} : worktopLabels[stockByFinish[0]?.finish??colorway.worktop] ?? worktopLabels.stejar;
 
 
+if(worktopLengthCm>0){
 doc.setFontSize(8);
 doc.setFont("helvetica", "normal");
 doc.setTextColor(15, 14, 13);
@@ -227,6 +228,8 @@ doc.text(worktopDimLines,margin+90,y);
 doc.text("-",margin+130,y);
 doc.text(worktopPrice.toLocaleString("ro-RO"),pageW-margin-1,y,{align:"right"});
 y+=worktopRowHeight;
+}
+
 
   y += 2;
   // Ensure total + button + footer fit — add page if needed
@@ -242,7 +245,7 @@ y+=worktopRowHeight;
     ["Subtotal corpuri TVA inclus", cabinetSubtotal],
     ...(opts.includeCabinetTotal ? [
       ["Blat", worktopPrice],
-      ["TOTAL CORPURI + BLAT", total],
+      [cabinets.some(c=>c.pricePending) ? "TOTAL PARTIAL (preturi neconfirmate)" : "TOTAL CORPURI + BLAT", total],
     ] as [string, number][] : []),
   ];
   for (const [label, value] of rows) {

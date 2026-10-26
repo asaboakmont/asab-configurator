@@ -1,9 +1,10 @@
+import { designPieceCenter } from "@/lib/asab/designPieces";
 import type jsPDF from "jspdf";
 import type { PDFExportOptions } from "@/lib/pdf/exportPDF";
 import type { Cabinet } from "@/types/kitchen";
 
 export interface PlanFootprint { minX: number; maxX: number; minZ: number; maxZ: number; }
-const upper = (c: Cabinet) => c.type.startsWith("wall");
+const upper = (c: Cabinet) => c.type.startsWith("wall") || c.designPiece?.band === "wall";
 /** Nominal footprints, in cm, using the viewer's wall offsets and stored free centres. */
 export function planFootprint(c: Cabinet, wallA: number): PlanFootprint {
   const isUpper = upper(c), isTall = c.type.startsWith("tall");
@@ -21,6 +22,7 @@ export function planFootprint(c: Cabinet, wallA: number): PlanFootprint {
       z = gap + c.width / 2;
     }
   }
+  if(c.designPiece){const center=designPieceCenter(c,wallA);x=center.x;z=center.z;rotation=center.rotationYDegrees;}
   const turned = rotation === 90 || rotation === 270;
   const w = turned ? c.depth : c.width, d = turned ? c.width : c.depth;
   return { minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 };
@@ -48,7 +50,7 @@ export function addDimensionedTopPlan(doc: jsPDF, opts: PDFExportOptions) {
   doc.setTextColor(20); doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.text("ASAB DESIGN", 16, 17);
   doc.setFontSize(16); doc.text("Plan de sus cotat", 16, 30);
   doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.text("Cote nominale in mm. Numerele corespund listei de corpuri. Fara arce de deschidere.", 16, 39);
-  const items = opts.cabinets.filter(c => c.type !== "accessory").map(c => ({ c, n: opts.cabinets.indexOf(c) + 1, box: planFootprint(c, roomW) }));
+  const items = opts.cabinets.filter(c => c.type !== "accessory" || c.designPiece?.kind === "worktop").map(c => ({ c, n: opts.cabinets.indexOf(c) + 1, box: planFootprint(c, roomW) }));
   // Keep out-of-room placements visible instead of cropping or changing room dimensions.
   const minX = Math.min(0, ...items.map(i => i.box.minX)), maxX = Math.max(roomW, ...items.map(i => i.box.maxX));
   const minZ = Math.min(0, ...items.map(i => i.box.minZ)), maxZ = Math.max(roomD, ...items.map(i => i.box.maxZ));

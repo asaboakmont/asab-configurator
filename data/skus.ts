@@ -1,3 +1,4 @@
+import { priceDesignPiece } from "@/lib/asab/designPieces";
 import { NATIVE_CATALOGUE, nativeProduct, nativeModel, nativeDimensions, priceWithDrainer } from "@/lib/catalog/nativeCatalogue";
 import { revisedPrice } from "@/lib/pricing/catalogPrices";
 import { customCabinetLabel } from "@/lib/asab/cabinetSizing";
@@ -160,6 +161,7 @@ function applyCollectionToCabinetBase(cabinet: Cabinet, collection: DesignCollec
 }
 
 export function applyCollectionToCabinet(cabinet: Cabinet, collection: DesignCollectionId): Cabinet {
+  if (cabinet.designPiece) return priceDesignPiece(cabinet, collection);
   const model = nativeModel(cabinet, collection);
   if (model && !model.active) throw new Error("Varianta cu sertar nu are pret confirmat.");
   const priced = applyCollectionToCabinetBase(cabinet, collection);
@@ -213,7 +215,7 @@ export function applyPublicCollectionToCabinets(cabinets: Cabinet[], collection:
   const publicCollection = collection === 'smart' ? 'japandi' : collection;
   return cabinets.map(cabinet => {
     const sku = cabinet.baseSku ?? stripCollectionSku(cabinet.sku);
-    if (sku.startsWith('ASAB-') || sku === 'ASB-SINA' || cabinet.catalogProduct || cabinet.drainerSku) throw new Error('Catalogul nou necesita acces intern.');
+    if (sku.startsWith('ASAB-') || sku === 'ASB-SINA' || cabinet.designPiece || cabinet.finishOverride || cabinet.runWorktopOverride || cabinet.runWorktopDimensions || cabinet.catalogProduct || cabinet.drainerSku) throw new Error('Catalogul nou necesita acces intern.');
     const priced = applyCollectionToCabinetBase(cabinet, publicCollection);
     return { ...priced, drainerSku: undefined, mountHeightCm: cabinet.type.startsWith('wall') ? 146.9 : undefined };
   });

@@ -13,13 +13,13 @@ interface CabinetEditorProps {
 }
 
 export default function CabinetEditor({ activeWall, selectedCabinetKey, onSelectCabinet }: CabinetEditorProps) {
-  const { cabinets, dimensions, collection, layout, constraints } = useConfigStore();
+  const { cabinets, dimensions, collection, layout, constraints, colorway } = useConfigStore();
   const editorWall = activeWall ?? "A";
   const wallCabs = cabinets.filter(c => c.wall === editorWall);
 
   function commit(newCabs: Cabinet[], nextSelectedCabinet?: Cabinet | null) {
     const collectionResult = applyCollectionToCabinets(newCabs, collection);
-    const { discounted, original } = calcTotalPrice(collectionResult, dimensions.wallA, dimensions.wallB, layout);
+    const { discounted, original } = calcTotalPrice(collectionResult, dimensions.wallA, dimensions.wallB, layout, colorway.worktop);
     useConfigStore.setState({ cabinets: collectionResult, totalPrice: discounted, originalPrice: original });
     if (nextSelectedCabinet === null) {
       onSelectCabinet?.(null);

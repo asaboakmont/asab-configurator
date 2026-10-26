@@ -159,7 +159,7 @@ export function createPublicKitchenPDF(opts: PDFExportOptions) {
   if (y > 270) { doc.addPage(); y = 20; }
 
   // Worktop row
-const { cabinetSubtotal, worktopLengthCm, worktopPrice, worktopDescription, total } = calculateExportPricing(cabinets, layout, dimensions);
+const { cabinetSubtotal, worktopLengthCm, worktopPrice, worktopDescription, total } = calculateExportPricing(cabinets, layout, dimensions, colorway.worktop);
 
 const worktopLabels: Record<string, { label: string; sku: string }> = {
   stejar: { label: "Blat stejar", sku: "BL-STEJAR" },

@@ -26,3 +26,19 @@ export function cornerModelAnchor(scene: THREE.Object3D, leftHand: boolean): THR
   if (bounds.isEmpty()) return rotation;
   return new THREE.Matrix4().makeTranslation(-bounds.min.x, -bounds.min.y, -bounds.min.z).multiply(rotation);
 }
+
+/** The restored 2001 models have front planes at 288mm, versus 333mm for
+ * the native CS (300mm carcass + 18mm front + 15mm wall gap).
+ * Refit both arms inside the original nominal 1000 x 600mm footprint.
+ * Preserve 18mm front thickness and rigid handle size; never modify source GLBs.
+ * Geometry is already a private baked copy in cornerModelAnchor coordinates.
+ */
+export function calibrateWallCornerGeometry(geometry:THREE.BufferGeometry, sourceWidth:number, sourceDepth:number, leftHand:boolean, hardware=false) {
+ const map=(v:number,extent:number,target:number)=>v<=.270?v*(.315/.270):v<=.288?v+.045:.333+(v-.288)*(target-.333)/(extent-.288);
+ geometry.computeBoundingBox();const center=geometry.boundingBox!.getCenter(new THREE.Vector3());
+ const mapX=(x:number)=>leftHand?1-map(sourceWidth-x,sourceWidth,1):map(x,sourceWidth,1);
+ const dx=mapX(center.x)-center.x,dz=map(center.z,sourceDepth,.6)-center.z;
+ const p=geometry.getAttribute('position');
+ for(let i=0;i<p.count;i++)p.setXYZ(i,hardware?p.getX(i)+dx:mapX(p.getX(i)),p.getY(i),hardware?p.getZ(i)+dz:map(p.getZ(i),sourceDepth,.6));
+ p.needsUpdate=true;geometry.computeBoundingBox();geometry.computeBoundingSphere();
+}
