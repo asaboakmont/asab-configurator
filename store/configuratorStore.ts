@@ -8,9 +8,10 @@ import type {
 } from "@/types/kitchen";
 import { COLORWAYS } from "@/data/colorways";
 import { resolveLayout, calcTotalPrice, snapDimension } from "@/lib/rules/resolver";
-import { applyCollectionToCabinets } from "@/data/skus";
+import { applyCollectionToCabinets, applyPublicCollectionToCabinets } from "@/data/skus";
 
 interface ConfiguratorStore {
+  internalSessionReady: boolean;
   step:       ConfigStep;
   setStep:    (s: ConfigStep) => void;
   collection: DesignCollectionId;
@@ -88,11 +89,12 @@ export const useConfigStore = create<ConfiguratorStore>((set, get) => ({
   shareUrl:    undefined,
   devConstraintsUnlocked: false,
   internalRole: null,
+  internalSessionReady: false,
   cabinets:      [],
   totalPrice:    0,
   originalPrice: 0,
   layoutWarnings: [],
-  setCollection: (collection) => set({ collection }),
+  setCollection: (collection) => set({ collection: collection === "smart" && !get().internalRole ? "japandi" : collection }),
   setBudget: (budget) => set((s) => ({ budget: { ...s.budget, ...budget } })),
   setRoomFinishes: (roomFinishes) => set((s) => ({ roomFinishes: { ...s.roomFinishes, ...roomFinishes } })),
   setLayout:     (layout)   => set({ layout }),
@@ -197,14 +199,18 @@ export const useConfigStore = create<ConfiguratorStore>((set, get) => ({
   setContact:    (c)        => set((s) => ({ contact: { ...s.contact, ...c } })),
   setShareUrl:   (shareUrl) => set({ shareUrl }),
   setDevConstraintsUnlocked: (devConstraintsUnlocked) => set({ devConstraintsUnlocked }),
-  setInternalRole: (internalRole) => set({
-    internalRole,
-    devConstraintsUnlocked: internalRole !== null,
-  }),
+  setInternalRole: (internalRole) => {
+    const previous = get().internalRole;
+    set({ internalRole, internalSessionReady: true, devConstraintsUnlocked: internalRole !== null });
+    if (previous && !internalRole) {
+      set({ collection: get().collection === 'smart' ? 'japandi' : get().collection, dimensions: { ...get().dimensions, height: 240 } });
+      if (get().cabinets.length) get().generate();
+    } else if (!previous && internalRole && get().cabinets.length) get().restoreCabinets(get().cabinets);
+  },
   restoreCabinets: (cabinets) => {
-    const { collection, dimensions, layout } = get();
+    const { collection, dimensions, layout, internalRole } = get();
     const normalized = cabinets.map((cabinet, index) => normalizeCabinet(cabinet, index));
-    const collectionCabinets = applyCollectionToCabinets(normalized, collection);
+    const collectionCabinets = (internalRole ? applyCollectionToCabinets : applyPublicCollectionToCabinets)(normalized, collection);
     const { original, discounted } = calcTotalPrice(
       collectionCabinets,
       dimensions.wallA,
@@ -214,7 +220,7 @@ export const useConfigStore = create<ConfiguratorStore>((set, get) => ({
     set({ cabinets: collectionCabinets, totalPrice: discounted, originalPrice: original });
   },
   generate: () => {
-    const { collection, layout, dimensions, appliances, constraints, devConstraintsUnlocked } = get();
+    const { collection, layout, dimensions, appliances, constraints, devConstraintsUnlocked, internalRole } = get();
     const resolvedLayout = layout === "peninsula" ? "linear" : layout;
 
     if (appliances.hasOven === "tall-column" && !appliances.hasHob) {
@@ -235,7 +241,7 @@ export const useConfigStore = create<ConfiguratorStore>((set, get) => ({
     };
     const activeConstraints = devConstraintsUnlocked ? constraints : undefined;
     const { cabinets, warnings } = resolveLayout(resolvedLayout, normalizedDimensions, scoringAppliances, activeConstraints);
-    const collectionCabinets = applyCollectionToCabinets(
+    const collectionCabinets = (internalRole ? applyCollectionToCabinets : applyPublicCollectionToCabinets)(
       cabinets.map((cabinet, index) => normalizeCabinet(cabinet, index)),
       collection
     );

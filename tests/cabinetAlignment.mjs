@@ -12,7 +12,7 @@ function load(name){
  const m={exports:{}};cache.set(file,m);
  new Function('require','exports','module',ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,esModuleInterop:true}}).outputText)(n=>n==='three'?THREE:n.startsWith('@/')?load(n):require(n),m.exports,m);return m.exports;
 }
-const { cabinetBottomCm, cabinetVerticalRange, cabinetWallGapCm, legacyWallCornerSku }=load('@/lib/asab/cabinetPlacement');
+const { cabinetBottomCm, cabinetVerticalRange, cabinetWallGapCm, legacyWallCornerSku, minimumRoomHeightCm }=load('@/lib/asab/cabinetPlacement');
 const { nativeProduct, nativeDimensions }=load('@/lib/catalog/nativeCatalogue');
 const { nativeAssetUrl }=load('@/lib/catalog/modelAssets');
 const { buildNativeModel, applyNativeMaterials, disposeNativeModel }=load('@/lib/asab/nativeModelGeometry');
@@ -55,5 +55,9 @@ for(const collection of ['smart','japandi','germain','franc']){
 }
 // Actual runtime wiring is part of the contract: fallback corners and hood donor must reach the viewer.
 const nativeSource=fs.readFileSync(path.join(root,'components/viewer/NativeCabinetModel.tsx'),'utf8');assert(nativeSource.includes('accessory, hood)'));assert(nativeSource.includes('hoodFrontUrl ? load(hoodFrontUrl)'));
-const sceneSource=fs.readFileSync(path.join(root,'components/viewer/KitchenScene.tsx'),'utf8');assert(sceneSource.includes('legacyCorner ? undefined : nativeModel'));assert(sceneSource.includes('cabinetWallGapCm(cabinet)'));
+const sceneSource=fs.readFileSync(path.join(root,'components/viewer/KitchenScene.tsx'),'utf8');assert(sceneSource.includes('!internalPreview || legacyCorner ? undefined : nativeModel'));assert(sceneSource.includes('cabinetWallGapCm(cabinet)'));
 console.log('PASS: all four hood fronts/hardware, handing, original carcasses, colour edits; CS/CA top 2200mm, SP bottom 2200mm including old saves; tall flush on A/B/C; legacy wall-corner routing.');
+
+assert.equal(minimumRoomHeightCm([{sku:'ASAB-SP-1U-W0600-JPN',type:'wall',height:40,mountHeightCm:216.9}]),260);
+assert.equal(minimumRoomHeightCm([{sku:'ASAB-CA-CPT-W0600-JPN',type:'tall-oven',height:220}]),220);
+console.log('PASS: internal room-height changes respect existing tall and SP cabinets');

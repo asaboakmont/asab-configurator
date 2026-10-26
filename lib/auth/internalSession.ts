@@ -57,10 +57,14 @@ export function usesInternalCabinetFeatures(value: unknown): boolean {
       ? nested.cabinets
       : [];
 
+  if (record.internalPreview === true || nested?.internalPreview === true || record.collection === 'smart' || nested?.collection === 'smart') return true;
   return cabinets.some((cabinet) => {
     if (!cabinet || typeof cabinet !== "object") return false;
     const item = cabinet as Record<string, unknown>;
-    return !!item.catalogProduct || item.isCustom === true ||
+    return (typeof item.sku === 'string' && /^(ASAB-|ASB-SINA)/.test(item.sku)) ||
+      (typeof item.baseSku === 'string' && /^(ASAB-|ASB-SINA)/.test(item.baseSku)) || !!item.drainerSku ||
+      (typeof item.mountHeightCm === 'number' && item.mountHeightCm !== 0 && item.mountHeightCm !== 146.9) ||
+      !!item.catalogProduct || item.isCustom === true ||
       item.placementMode === "free" ||
       (typeof item.standardWidth === "number" && typeof item.width === "number" && item.standardWidth !== item.width);
   });

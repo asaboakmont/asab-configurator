@@ -208,3 +208,13 @@ export function findBestWall(targetWidth: number): SkuDefinition | undefined {
     .filter((c) => c.type === "wall" && c.width <= targetWidth)
     .sort((a, b) => b.width - a.width)[0];
 }
+
+export function applyPublicCollectionToCabinets(cabinets: Cabinet[], collection: DesignCollectionId): Cabinet[] {
+  const publicCollection = collection === 'smart' ? 'japandi' : collection;
+  return cabinets.map(cabinet => {
+    const sku = cabinet.baseSku ?? stripCollectionSku(cabinet.sku);
+    if (sku.startsWith('ASAB-') || sku === 'ASB-SINA' || cabinet.catalogProduct || cabinet.drainerSku) throw new Error('Catalogul nou necesita acces intern.');
+    const priced = applyCollectionToCabinetBase(cabinet, publicCollection);
+    return { ...priced, drainerSku: undefined, mountHeightCm: cabinet.type.startsWith('wall') ? 146.9 : undefined };
+  });
+}

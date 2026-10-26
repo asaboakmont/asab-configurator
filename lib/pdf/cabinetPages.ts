@@ -1,3 +1,4 @@
+import { cabinetVerticalRange } from '@/lib/asab/cabinetPlacement';
 import { addWorktopPage } from "@/lib/pdf/worktopPage";
 import { doorHingeSides } from "@/lib/pdf/hinges";
 import type jsPDF from "jspdf";
@@ -62,7 +63,8 @@ export function addCabinetPages(doc:jsPDF,opts:PDFExportOptions){
     line("Nume",19,top+23,8,true);
     doc.setFontSize(9);doc.setFont("helvetica","bold");const names=doc.splitTextToSize(clean(name),152);doc.text(names,39,top+22);
     line(`L x H x A: ${Math.round(c.width*10)} x ${Math.round(c.height*10)} x ${Math.round(c.depth*10)} mm`,19,top+35.3,8);
-    const detail=`Amplasare: ${c.placementMode==="free"?"libera":c.wall}${hinges.length?` | Deschidere: ${opening}`:""}${c.isCustom?" | Personalizat":""}`;
+    const elevations = cabinetVerticalRange(c).map(value => Math.round(value * 10)).join("-");
+    const detail=`Cote pardoseala: ${elevations} mm | Amplasare: ${c.placementMode==="free"?"libera":c.wall}${hinges.length?` | Deschidere: ${opening}`:""}${c.isCustom?" | Personalizat":""}`;
     line(detail,19,top+41.3,7.5);
     doc.setFillColor(247,247,247);doc.rect(16,top+43,178,6,"FD");doc.line(105,top+43,105,top+100);
     const actual=opts.cabinetViews?.find(v=>v.cabinetId===cabinetKey(c));

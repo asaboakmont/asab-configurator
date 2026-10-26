@@ -13,7 +13,7 @@ const COLLECTION_IMAGES: Record<string, string> = {
 };
 
 export default function StepCollection() {
-  const { collection, setCollection, setStep } = useConfigStore();
+  const { collection, internalRole, setCollection, setStep } = useConfigStore();
 
   return (
     <div className="space-y-8">
@@ -33,7 +33,7 @@ export default function StepCollection() {
       </div>
 
       <div className="space-y-3">
-        {DESIGN_COLLECTIONS.map((item) => {
+        {DESIGN_COLLECTIONS.filter(item => item.id !== "smart" || internalRole === "admin" || internalRole === "designer").map((item) => {
           const isActive = collection === item.id;
           const imageSrc = COLLECTION_IMAGES[item.id];
           return (

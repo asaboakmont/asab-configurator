@@ -27,6 +27,8 @@ interface KitchenSceneProps {
   colorway: Colorway;
   wallA: number;
   wallB?: number;
+  roomHeight?: number;
+  internalPreview?: boolean;
   cornerSide?: "left" | "right";
   constraints?: RoomConstraints;
   collection?: DesignCollectionId;
@@ -218,6 +220,8 @@ export default function KitchenScene({
   colorway,
   wallA,
   wallB,
+  roomHeight = 260,
+  internalPreview = false,
   cornerSide = "right",
   constraints,
   collection = "japandi",
@@ -310,7 +314,7 @@ export default function KitchenScene({
       <directionalLight position={[midX, 4.2, 5.2]} intensity={0.34} color="#fff8ee" />
       <pointLight position={[midX, 24 * CM, 3.5]} intensity={0.52} color="#fff1d6" />
 
-      <Room wallA={wallA} wallB={wallB} cornerSide={cornerSide} roomFinishes={roomFinishes} />
+      <Room wallA={wallA} wallB={wallB} roomHeight={roomHeight} cornerSide={cornerSide} roomFinishes={roomFinishes} />
       <ConstraintMarkers constraints={constraints} wallA={wallA} />
       {!adminDesktop && !editMode && renderPreset === "interactive" && (
         <InSceneWallEditButtons
@@ -336,6 +340,7 @@ export default function KitchenScene({
         <CabinetMesh
           key={key}
           cabinet={cab}
+          internalPreview={internalPreview}
           colorway={colorway}
           wallA={wallA}
           cornerSide={cornerSide}
@@ -933,17 +938,19 @@ function editViewAspect(width: number, height: number): number {
 function Room({
   wallA,
   wallB,
+  roomHeight = 260,
   cornerSide = "right",
   roomFinishes,
 }: {
   wallA: number;
   wallB?: number;
+  roomHeight?: number;
   cornerSide?: "left" | "right";
   roomFinishes?: RoomFinishes;
 }) {
   const floorW = wallA * CM;
   const roomD = roomDepthCm(wallB);
-  const wallH = 260 * CM;
+  const wallH = roomHeight * CM;
   const wallThickness = 6 * CM;
   const floorThickness = 6 * CM;
   const leftWallX = 0;
@@ -2340,6 +2347,7 @@ function ViewportAddButton({
 
 function CabinetMesh({
   cabinet,
+  internalPreview = false,
   colorway,
   wallA,
   collection,
@@ -2351,6 +2359,7 @@ function CabinetMesh({
   onRemoveSelected,
 }: {
   cabinet: Cabinet;
+  internalPreview?: boolean;
   colorway: Colorway;
   wallA: number;
   collection: DesignCollectionId;
@@ -2537,7 +2546,7 @@ function CabinetMesh({
     />
   ) : null;
   const legacyCorner = legacyWallCornerSku(cabinet);
-  const native = legacyCorner ? undefined : nativeModel(cabinet, collection);
+  const native = !internalPreview || legacyCorner ? undefined : nativeModel(cabinet, collection);
   if (native?.active) {
     // Straight blind corners use the same wall-facing pivot as ordinary cabinets.
     const nativeY = (cabinetBottomCm(cabinet) + height / 2) * CM;

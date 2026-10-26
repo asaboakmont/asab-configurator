@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { config } = body;
+    const config = internalRole && body.config && typeof body.config === "object" ? { ...body.config, internalPreview: true } : body.config;
 
     // Configurations using internal/custom cabinet features
     // can only be saved by an authenticated internal user.

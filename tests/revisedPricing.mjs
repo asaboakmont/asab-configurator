@@ -97,3 +97,14 @@ assert(customerText.includes('Blat - detalii'));assert(customerText.includes('74
 const noCoordinates=createKitchenPDF({...opts,enhancedPDF:true,technicalViews:[{...imageFixture,label:'Vedere in contur - perete A'}]});
 const noCoordinatesText=noCoordinates.internal.pages.flat().join(' ');assert(noCoordinatesText.includes('Vedere in contur - perete A'));assert(!noCoordinatesText.includes('X inceput mm'));assert(!noCoordinatesText.includes('Nr corp    X'));
 console.log('PASS: wall drawings remain, with coordinate tables removed.');
+
+const elevated = createKitchenPDF({...opts,enhancedPDF:true,cabinets:[
+ {sku:'ASAB-CS-HOTA-W0600-JPN',type:'wall-hood',width:60,height:66,depth:31.8,wall:'A',xPos:0,price:402},
+ {sku:'ASAB-SP-1U-W0600-JPN',type:'wall',width:60,height:40,depth:57.8,wall:'A',xPos:0,price:531,mountHeightCm:216.9},
+ {sku:'ASAB-CS-COLT-DR-W1000-JPN',type:'wall-corner',width:100,height:70,depth:31.8,wall:'C',xPos:0,price:815},
+ {sku:'ASAB-CA-CPT-W0600-JPN',type:'tall-oven',width:60,height:220,depth:57.8,wall:'A',xPos:60,price:1570}
+]});
+const elevatedText=elevated.internal.pages.flat().join(' ');
+for(const range of ['1540-2200','2200-2600','1500-2200','0-2200'])assert(elevatedText.includes(range),range);
+assert(!publicText.includes('Cote pardoseala'));
+console.log('PASS: enhanced PDF floor elevations match hood, SP, wall corner and tall placement; public PDF stays compact');

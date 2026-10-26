@@ -1,4 +1,5 @@
 "use client";
+import InternalRoomHeightControl from "./InternalRoomHeightControl";
 import { cabinetVerticalRange, cabinetWallGapCm } from '@/lib/asab/cabinetPlacement';
 import { compatibleDrainer, nativeModel } from "@/lib/catalog/nativeCatalogue";
 import { resizeCabinetAtOrigin } from "@/lib/asab/cabinetSizing";
@@ -469,10 +470,10 @@ export default function StepViewer() {
         });
         if (res.ok) { const data = await res.json(); cartUrl = data.checkoutUrl; }
       } catch(e) { console.warn("Cart URL failed:", e); }
-      const technical = isInternal && liveScene
+      const technical = liveScene
         ? await (await import("@/lib/pdf/technicalViews")).captureTechnicalViews(liveScene, cabinets).catch(() => ({ worktopImage: undefined, images: [], cabinetImages: [], warnings: ["Vederile 3D in contur nu au putut fi generate. Schemele individuale sunt orientative."] }))
         : { worktopImage: undefined, images: [], cabinetImages: [], warnings: ["Scena 3D nu este disponibila. Schemele individuale sunt orientative."] };
-      await exportKitchenPDF({ worktopView: technical.worktopImage, technicalViews: technical.images, cabinetViews: technical.cabinetImages, technicalWarnings: technical.warnings, enhancedPDF: isInternal, includeCabinetTotal: isInternal, cabinets: cabinets, colorway, handle: colorway.handle, totalPrice, layout, dimensions, screenshots, cartUrl, configuratorUrl, contact: { name, phone, email, city }, constraints: activeConstraints, collection, roomFinishes });
+      await exportKitchenPDF({ worktopView: technical.worktopImage, technicalViews: technical.images, cabinetViews: technical.cabinetImages, technicalWarnings: technical.warnings, enhancedPDF: true, includeCabinetTotal: true, cabinets: cabinets, colorway, handle: colorway.handle, totalPrice, layout, dimensions, screenshots, cartUrl, configuratorUrl, contact: { name, phone, email, city }, constraints: activeConstraints, collection, roomFinishes });
     } catch (error) {
       setExportError(error instanceof Error ? error.message : "Exportul nu a reusit. Incercati din nou.");
       return false;
@@ -493,10 +494,12 @@ export default function StepViewer() {
         <Suspense fallback={<ViewerSkeleton />}>
           <KitchenScene
             adminDesktop={adminDesktop}
+            internalPreview={isInternal}
             onSceneReady={setLiveScene}
             cabinets={visibleCabinets}
             colorway={colorway}
             wallA={dimensions.wallA}
+            roomHeight={dimensions.height ?? 240}
             wallB={layout === "l-shape" ? (dimensions.wallB ?? 160) : undefined}
             cornerSide={dimensions.cornerSide ?? "right"}
             constraints={visibleConstraints}
@@ -540,9 +543,9 @@ export default function StepViewer() {
           </div>}
         </div>
       )}
-      {hdRenderOpen && liveScene && <HDRenderDialog corner={layout === "l-shape" ? dimensions.cornerSide ?? "right" : undefined} target={hdRenderTarget} settings={hdSettings} onSettings={setHDSettings} images={hdImages} onImage={rememberHD} onPPTX={images => handleExportPDF(internalCustomer.name, "", internalCustomer.phone, "pptx", images, internalCustomer.city)} scene={liveScene} expectedCabinets={cabinets.length} rightCorner={cabinets.some(c => c.wall === "C")} onClose={() => setHDRenderOpen(false)} />}
+      {isInternal && hdRenderOpen && liveScene && <HDRenderDialog corner={layout === "l-shape" ? dimensions.cornerSide ?? "right" : undefined} target={hdRenderTarget} settings={hdSettings} onSettings={setHDSettings} images={hdImages} onImage={rememberHD} onPPTX={images => handleExportPDF(internalCustomer.name, "", internalCustomer.phone, "pptx", images, internalCustomer.city)} scene={liveScene} expectedCabinets={cabinets.length} rightCorner={cabinets.some(c => c.wall === "C")} onClose={() => setHDRenderOpen(false)} />}
       {exportError && <div role="alert" className="absolute top-28 inset-x-4 z-50 rounded-xl bg-red-50 p-3 text-sm text-red-700">{exportError}</div>}
-      {cabinets.some(c => compatibleDrainer(c, collection)) && <details className={adminDesktop ? "rounded-xl border bg-white p-3" : "absolute bottom-24 right-4 z-40 max-h-64 w-72 overflow-auto rounded-xl bg-white p-3 shadow"}>
+      {isInternal && cabinets.some(c => compatibleDrainer(c, collection)) && <details className={adminDesktop ? "rounded-xl border bg-white p-3" : "absolute bottom-24 right-4 z-40 max-h-64 w-72 overflow-auto rounded-xl bg-white p-3 shadow"}>
         <summary className="cursor-pointer text-sm font-semibold">Scurgatoare incorporate</summary>
         <div className="space-y-3 pt-3">{cabinets.map(c => {
           const drainer = compatibleDrainer(c, collection); if (!drainer) return null;
@@ -554,9 +557,10 @@ export default function StepViewer() {
       </details>}
       {isInternal && <div className={adminDesktop ? "" : "absolute top-40 right-4 z-40 w-80 max-h-[45vh] overflow-auto"}><InternalCatalog admin={internalRole === "admin"} onAdd={addImportedProduct} /></div>}
       {isInternal && (
-        <details className={adminDesktop ? "admin-sku-picker" : "absolute top-28 right-4 z-40 w-80 max-h-[60vh] overflow-auto rounded-xl bg-white p-3 shadow-lg"} open={adminDesktop}>
+        <details className={adminDesktop ? "admin-sku-picker" : "absolute top-28 right-4 z-[90] w-80 max-h-[60vh] overflow-auto rounded-xl bg-white p-3 shadow-lg"} open={adminDesktop}>
           <summary className="cursor-pointer text-sm font-semibold">Catalog {collection} · Adauga corp</summary>
           <div className="space-y-3 pt-3">
+            <InternalRoomHeightControl height={dimensions.height ?? 240} cabinets={cabinets} role={internalRole!} disabled={exporting || exportingGLB || hdRenderOpen} onApply={height => useConfigStore.getState().setDimensions({ height })} />
             <label className="block text-xs">Perete
               <select value={editWall} onChange={e => { setEditWall(e.target.value as WallSide); setSelectedCabinetKey(null); }} className="mt-1 w-full rounded-lg border p-2">
                 {editableWalls.map(wall => <option key={wall.id} value={wall.id}>{wall.label}</option>)}
@@ -702,7 +706,7 @@ export default function StepViewer() {
                 {glbError && <p role="alert" className="text-sm text-red-600">{glbError}</p>}
               </>
             )}
-            <button type="button" onClick={() => { setHDRenderTarget("png"); setHDRenderOpen(true); }} disabled={!liveScene || exporting || exportingGLB} className="w-full rounded-xl border border-gray-300 py-3 text-sm font-semibold text-gray-900 disabled:opacity-50">Export randare HD</button>
+            {isInternal && <button type="button" onClick={() => { setHDRenderTarget("png"); setHDRenderOpen(true); }} disabled={!liveScene || exporting || exportingGLB} className="w-full rounded-xl border border-gray-300 py-3 text-sm font-semibold text-gray-900 disabled:opacity-50">Export randare HD</button>}
             <div className="grid grid-cols-2 gap-2">
               <button onClick={() => { setExportFormat("pdf"); if (glbExportEnabled) { setCustomerDialogTarget("pdf"); setCustomerDialogOpen(true); } else setPdfModalOpen(true); }} disabled={exporting}
                 className="py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600">

@@ -6,9 +6,14 @@ import { COLORWAYS, HANDLE_OPTIONS, WORKTOP_OPTIONS } from "@/data/colorways";
 import type { BacksplashTexture, BudgetPreference, BudgetRange, Cabinet, ConfigStep, DesignCollectionId, FloorTexture, LayoutType, OvenPlacement, WallDimensions } from "@/types/kitchen";
 
 export default function Home() {
+  const internalRole = useConfigStore(state => state.internalRole);
+  const sessionReady = useConfigStore(state => state.internalSessionReady);
   useEffect(() => {
+    if (!sessionReady) return;
+    let active = true;
     const store = useConfigStore.getState();
     const params = new URLSearchParams(window.location.search);
+    if (internalRole && (params.has("project") || params.get("saveDraft") === "1" || params.get("guestDraft") === "1")) return;
     const configId = params.get("config");
     if (!configId) {
       loadConfigFromParams(params, store);
@@ -18,7 +23,7 @@ export default function Home() {
     fetch(`/api/config/load?id=${configId}`)
       .then(r => r.json())
       .then(({ config }) => {
-        if (!config) return;
+        if (!active || !config) return;
         const c = typeof config === "string" ? JSON.parse(config) : config;
         if (c.layout)     store.setLayout(c.layout);
         if (c.dimensions) store.setDimensions(c.dimensions);
@@ -32,7 +37,8 @@ export default function Home() {
         if (Array.isArray(c.cabinets)) store.restoreCabinets(c.cabinets as Cabinet[]);
       })
       .catch(console.error);
-  }, []);
+    return () => { active = false; };
+  }, [internalRole, sessionReady]);
 
   return (
     <main className="min-h-screen bg-asab-cream">

@@ -24,3 +24,8 @@ export function legacyWallCornerSku(cabinet: Pick<Cabinet, 'type' | 'sku' | 'bas
 export function cabinetWallGapCm(cabinet: Pick<Cabinet, 'type'>): number {
   return cabinet.type === 'accessory' || cabinet.type.startsWith('tall') ? 0 : cabinet.type.startsWith('wall') ? 1.5 : 5;
 }
+
+/** Do not lower the room ceiling through an existing cabinet. */
+export function minimumRoomHeightCm(cabinets: Cabinet[]): number {
+  return Math.ceil(Math.max(200, ...cabinets.map(c => cabinetVerticalRange(c)[1])));
+}

@@ -1,3 +1,4 @@
+import { getInternalRole, usesInternalCabinetFeatures } from "@/lib/auth/internalSession";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
@@ -13,5 +14,8 @@ export async function GET(req: NextRequest) {
   const config = await redis.get(`config:${id}`);
   if (!config) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  return NextResponse.json({ config });
+  let parsed = config;
+  try { if (typeof config === 'string') parsed = JSON.parse(config); } catch {}
+  if (usesInternalCabinetFeatures(parsed) && !getInternalRole(req)) return NextResponse.json({ error: 'Configuratie disponibila numai pentru admin/designer.' }, { status: 403, headers: { 'Cache-Control': 'private, no-store' } });
+  return NextResponse.json({ config }, { headers: { 'Cache-Control': 'private, no-store' } });
 }

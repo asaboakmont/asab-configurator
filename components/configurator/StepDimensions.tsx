@@ -54,7 +54,7 @@ function IslandIcon({ className = "" }: { className?: string }) {
 }
 
 export default function StepDimensions() {
-  const { layout, dimensions, devConstraintsUnlocked, setLayout, setDimensions, setStep } = useConfigStore();
+  const { layout, dimensions, internalRole, devConstraintsUnlocked, setLayout, setDimensions, setStep } = useConfigStore();
   const baseLayout = layout === "island" || layout === "peninsula" ? "linear" : layout;
   const hasIsland = layout === "island" || dimensions.hasIsland === true;
 
@@ -192,10 +192,10 @@ export default function StepDimensions() {
           </>
         )}
 
-        <div>
+        {(internalRole === "admin" || internalRole === "designer") && <div>
           <DimensionInput label="Inaltime camera" value={dimensions.height ?? 240} min={200} max={400} onChange={(height) => setDimensions({ height })} />
           <p className="text-xs text-gray-500 mt-2">Corpurile suprapozabile de 400 mm, montate la 2200 mm, necesita o camera de minimum 260 cm.</p>
-        </div>
+        </div>}
 
         {hasIsland && (
           <div className="border border-gray-100 rounded-xl p-4 space-y-4">
