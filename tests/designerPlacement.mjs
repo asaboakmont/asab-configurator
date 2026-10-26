@@ -8,7 +8,8 @@ const selected = source.statements.filter(node => ts.isFunctionDeclaration(node)
 const code = ts.transpileModule(selected.map(node => node.getText(source)).join('\n'), { compilerOptions: { target: ts.ScriptTarget.ES2020 } }).outputText;
 const rulesSource = readFileSync(new URL('../lib/rules/resolver.ts', import.meta.url), 'utf8');
 const rules = Object.fromEntries(['WALL_DEPTH', 'BASE_DEPTH'].map(key => [key, Number(rulesSource.match(new RegExp(key + ':\\s*(\\d+)'))[1])]));
-const { getEditableWalls, editorWallEnd, isValidEditorSlot } = new Function('RULES', code + '\nreturn {getEditableWalls, editorWallEnd, isValidEditorSlot};')(rules);
+const placement = {}; new Function('exports', ts.transpileModule(readFileSync(new URL('../lib/asab/cabinetPlacement.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText)(placement);
+const { getEditableWalls, editorWallEnd, isValidEditorSlot } = new Function('RULES', 'cabinetVerticalRange', 'cabinetWallGapCm', code + '\nreturn {getEditableWalls, editorWallEnd, isValidEditorSlot};')(rules, placement.cabinetVerticalRange, placement.cabinetWallGapCm);
 assert.deepEqual(getEditableWalls([], true).map(w => w.id), ['A', 'B', 'C']);
 assert.deepEqual(getEditableWalls([], false).map(w => w.id), ['A']);
 const dimensions = { wallA: 300, wallB: 180 };
@@ -26,3 +27,9 @@ assert.equal(valid(left, 0, [back], false), true, 'existing customer rules stay 
 assert.equal(valid(left, 80, [], true, { openings: [{ wall: 'B', type: 'door', xPos: 80, width: 60, height: 210 }] }), false);
 assert.equal(valid(left, 80, [{ ...left, id: 'free', placementMode: 'free', freePosition: { x: 33, z: 110 }, rotationYDegrees: 90 }]), false);
 console.log('PASS: empty internal walls, U arrangement, room bounds, perpendicular/free collisions and customer rules');
+
+const wallUnit={id:'cs',sku:'ASAB-CS-1U-RAFT-W0600-JPN',type:'wall',width:60,height:70,depth:31.8,wall:'A',xPos:60};
+const sp={...wallUnit,id:'sp',sku:'ASAB-SP-1U-W0600-JPN',height:40,depth:57.8,mountHeightCm:216.9};
+assert.equal(isValidEditorSlot(sp,60,[wallUnit,sp],{...dimensions,height:260},'linear',{},true),true,'SP may sit directly above CS at 2200mm, including older saves');
+assert.equal(isValidEditorSlot(sp,60,[wallUnit,sp],{...dimensions,height:240},'linear',{},true),false,'SP must not pass through a low ceiling');
+console.log('PASS: SP stacking at 2200 mm and actual ceiling-height checks');

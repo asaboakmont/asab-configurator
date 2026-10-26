@@ -124,6 +124,11 @@ export default function StepDimensions() {
             <p className={["text-xs mt-0.5", hasIsland ? "text-gray-300" : "text-gray-400"].join(" ")}>Optional pentru bucatarie liniara sau in colt</p>
           </div>
         </button>
+        <div>
+          <DimensionInput label="Inaltime camera" value={dimensions.height ?? 240} min={200} max={400} onChange={(height) => setDimensions({ height })} />
+          <p className="text-xs text-gray-500 mt-2">Corpurile suprapozabile de 400 mm, montate la 2200 mm, necesita o camera de minimum 260 cm.</p>
+        </div>
+
         {hasIsland && (
           <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2 mt-3 leading-relaxed">
             Configuratiile cu insula necesita verificare tehnica pentru pozitionare exacta, distante de circulatie si instalatii.
@@ -192,6 +197,11 @@ export default function StepDimensions() {
           </>
         )}
 
+        <div>
+          <DimensionInput label="Inaltime camera" value={dimensions.height ?? 240} min={200} max={400} onChange={(height) => setDimensions({ height })} />
+          <p className="text-xs text-gray-500 mt-2">Corpurile suprapozabile de 400 mm, montate la 2200 mm, necesita o camera de minimum 260 cm.</p>
+        </div>
+
         {hasIsland && (
           <div className="border border-gray-100 rounded-xl p-4 space-y-4">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Dimensiuni insula</p>
@@ -224,7 +234,7 @@ export default function StepDimensions() {
         )}
       </div>
 
-      <button onClick={handleNext} className="w-full py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition-all">
+      <button onClick={handleNext} disabled={!Number.isFinite(dimensions.height ?? 240) || (dimensions.height ?? 240) < 200 || (dimensions.height ?? 240) > 400} className="w-full py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition-all">
         Continua →
       </button>
     </div>

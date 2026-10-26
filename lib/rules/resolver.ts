@@ -1,3 +1,4 @@
+import { cabinetVerticalRange } from '@/lib/asab/cabinetPlacement';
 import { calculateExportPricing } from "@/lib/pricing/exportPricing";
 import type {
   Cabinet,
@@ -22,8 +23,8 @@ export const RULES = {
   CORNER_BASE_OFFSET:     5,
   MIN_WALL_B:             100,
   WORKTOP_DEPTH:          60,
-  WALL_CAB_FROM_FLOOR:    146.9,
-  BASE_HEIGHT:            86,
+  WALL_CAB_FROM_FLOOR:    150,
+  BASE_HEIGHT:            86.2,
   BASE_DEPTH:             53,
   BASE_WALL_GAP:          5,
   WALL_DEPTH:             32,
@@ -568,8 +569,11 @@ export function resolveLayout(
   });
 
   // Wall A wall run — same width as base run, no tall zone
-  const wallRunStartX = cornerAtLeft ? Math.max(cornerGap, peninsulaGapStart) : tallWidth + baseGap + peninsulaGapStart;
-  const wallRunLen    = baseLength - (!cornerAtLeft ? baseGap : 0);
+  // Retain the previous wall-corner asset and its 600 mm layout clearance.
+  const wallCornerGap = activeLayout === "l-shape" ? 60 : 0;
+  const wallRunStartX = cornerAtLeft ? Math.max(wallCornerGap, peninsulaGapStart) : tallWidth + baseGap + peninsulaGapStart;
+  const wallRunEndX = cornerAtLeft ? wallA - tallWidth - peninsulaGapEnd : wallA - Math.max(wallCornerGap, peninsulaGapEnd);
+  const wallRunLen = Math.max(0, wallRunEndX - wallRunStartX);
   setRunBounds(context, "A", "wall", wallRunStartX, wallRunStartX + wallRunLen);
   const hobPlacement  = wallAAppliances.hasHob && appliances.hasHood
     ? autoPlaceHobWall(adjustedBasePlacements) : new Map<number, Cabinet["type"]>();
@@ -1553,10 +1557,7 @@ function getMountLayer(cab: Cabinet): MountLayer {
 }
 
 function getCabinetYRange(cab: Cabinet): [number, number] {
-  if (WALL_CABINET_TYPES.includes(cab.type)) {
-    return [RULES.WALL_CAB_FROM_FLOOR, RULES.WALL_CAB_FROM_FLOOR + cab.height];
-  }
-  return [0, cab.height];
+  return cabinetVerticalRange(cab);
 }
 
 function verticalOverlap(a: [number, number], b: [number, number]): boolean {

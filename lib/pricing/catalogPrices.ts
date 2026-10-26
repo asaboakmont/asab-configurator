@@ -13,17 +13,17 @@ export const MODEL_FAMILIES: Record<string, string> = {
   "2014": "ASAB-CS-1U-RAFT", "2013": "ASAB-CS-2U-RAFT", "2007": "ASAB-CS-HOTA",
   "1011A": "ASAB-CA-2UV", "1011B": "ASAB-CA-CPT", "1011C": "ASAB-CA-CPT-MIC",
 };
-const suffixes: Record<DesignCollectionId, string> = { japandi: "JPN", germain: "GRM", franc: "FRC" };
+const suffixes: Record<DesignCollectionId, string> = { smart: "SMT", japandi: "JPN", germain: "GRM", franc: "FRC" };
 export function revisedPrice(sku: string, widthCm: number, collection: DesignCollectionId) {
-  const model = sku.replace(/-(jpn|grm|frc|soh)$/i, "");
-  const family = MODEL_FAMILIES[model] ?? (model.startsWith("ASAB-") ? model.replace(/-W\d+$/, "") : undefined);
+  const model = sku.replace(/-(smt|jpn|grm|frc|soh)$/i, "");
+  const family = MODEL_FAMILIES[model.replace(/-CPT-USA-W/, "-CPT-US-W")] ?? (model.startsWith("ASAB-") ? model.replace(/-W\d+$/, "").replace(/-CPT-USA$/, "-CPT-US") : undefined);
   if (!family) return undefined;
   const key = `${family}-W${String(Math.round(widthCm * 10)).padStart(4, "0")}`;
   // A fractional millimetre must not accidentally match a listed integer size.
   if (Math.abs(widthCm * 10 - Math.round(widthCm * 10)) > 0.000001) return undefined;
   const row = REVISED_CATALOGUE.find(r => r.sku === key);
   if (!row) return undefined;
-  const price = row.prices[collection];
+  const price = row.prices[collection === "smart" ? "soho" : collection];
   if (price == null) return undefined;
   return { price, displaySku: `${key}-${suffixes[collection]}`, name: row.name,
     note: key === "ASAB-CS-2F-LIFT-W1000" && collection === "germain" ? "Pret Germain 415 RON din catalog: necesita confirmare." : undefined };

@@ -1,4 +1,6 @@
 "use client";
+import { cabinetVerticalRange, cabinetWallGapCm } from '@/lib/asab/cabinetPlacement';
+import { compatibleDrainer, nativeModel } from "@/lib/catalog/nativeCatalogue";
 import { resizeCabinetAtOrigin } from "@/lib/asab/cabinetSizing";
 import React from "react";
 import CustomerDetailsDialog, { type ExportCustomer } from "./CustomerDetailsDialog";
@@ -70,6 +72,7 @@ export default function StepViewer() {
         useConfigStore.getState().setInternalRole(null);
         throw new Error("Sesiunea interna a expirat. Autentificati-va din nou.");
       }
+      await waitForCabinetModels(liveScene, visibleCabinets);
       await downloadKitchenGLB(liveScene);
     }
     catch (error) { setGlbError(error instanceof Error ? error.message : "GLB export failed. Please try again."); }
@@ -392,8 +395,9 @@ export default function StepViewer() {
     } else insertCatalogueSku(sku);
   }
   const catalogueMatches = ALL_SKUS.filter(sku => {
-    const category = sku.type.startsWith("wall") ? "wall" : sku.type.startsWith("tall") ? "tall" : "base";
+    const category = sku.type === "accessory" ? "accessory" : sku.type.startsWith("wall") ? "wall" : sku.type.startsWith("tall") ? "tall" : "base";
     const term = skuSearch.trim().toLocaleLowerCase();
+    if (!sku.sku.startsWith("ASAB-") && sku.sku !== "ASB-SINA" && nativeModel({ ...sku, wall: "A", xPos: 0 }, collection)) return false;
     return (skuCategory === "all" || skuCategory === category) &&
       `${toCollectionSku(sku.sku, collection)} ${sku.label} ${sku.width * 10}`.toLocaleLowerCase().includes(term);
   });
@@ -436,6 +440,7 @@ export default function StepViewer() {
         });
       }
       if (was2D) { setShow2D(false); await waitForRenderFrame(900); }
+      await waitForCabinetModels(liveScene, cabinets);
       const screenshots = hdScreenshots ?? await capturePdfRenderViews(setRenderPreset);
       if (format === "pptx") {
         if (!isInternal) throw new Error("Autentificare interna necesara pentru export PowerPoint.");
@@ -537,6 +542,16 @@ export default function StepViewer() {
       )}
       {hdRenderOpen && liveScene && <HDRenderDialog corner={layout === "l-shape" ? dimensions.cornerSide ?? "right" : undefined} target={hdRenderTarget} settings={hdSettings} onSettings={setHDSettings} images={hdImages} onImage={rememberHD} onPPTX={images => handleExportPDF(internalCustomer.name, "", internalCustomer.phone, "pptx", images, internalCustomer.city)} scene={liveScene} expectedCabinets={cabinets.length} rightCorner={cabinets.some(c => c.wall === "C")} onClose={() => setHDRenderOpen(false)} />}
       {exportError && <div role="alert" className="absolute top-28 inset-x-4 z-50 rounded-xl bg-red-50 p-3 text-sm text-red-700">{exportError}</div>}
+      {cabinets.some(c => compatibleDrainer(c, collection)) && <details className={adminDesktop ? "rounded-xl border bg-white p-3" : "absolute bottom-24 right-4 z-40 max-h-64 w-72 overflow-auto rounded-xl bg-white p-3 shadow"}>
+        <summary className="cursor-pointer text-sm font-semibold">Scurgatoare incorporate</summary>
+        <div className="space-y-3 pt-3">{cabinets.map(c => {
+          const drainer = compatibleDrainer(c, collection); if (!drainer) return null;
+          return <label key={cabinetKey(c)} className="flex gap-2 text-xs"><input type="checkbox" checked={c.drainerSku === drainer.sku} onChange={e => {
+            const updated = { ...c, drainerSku: e.target.checked ? drainer.sku : undefined };
+            commitCabinets(cabinets.map(item => cabinetKey(item) === cabinetKey(c) ? updated : item), updated);
+          }} /><span>{c.displaySku ?? c.sku} · Perete {c.wall}, {Math.round(c.xPos * 10)} mm<br />Scurgator {drainer.widthMm} mm · +{drainer.price} RON</span></label>;
+        })}</div>
+      </details>}
       {isInternal && <div className={adminDesktop ? "" : "absolute top-40 right-4 z-40 w-80 max-h-[45vh] overflow-auto"}><InternalCatalog admin={internalRole === "admin"} onAdd={addImportedProduct} /></div>}
       {isInternal && (
         <details className={adminDesktop ? "admin-sku-picker" : "absolute top-28 right-4 z-40 w-80 max-h-[60vh] overflow-auto rounded-xl bg-white p-3 shadow-lg"} open={adminDesktop}>
@@ -549,7 +564,7 @@ export default function StepViewer() {
             </label>
             <input aria-label="Cauta SKU sau denumire" placeholder="SKU, denumire sau latime (mm)" value={skuSearch} onChange={e => setSkuSearch(e.target.value)} className="w-full rounded-lg border p-2 text-sm" />
             <select aria-label="Tip corp" value={skuCategory} onChange={e => setSkuCategory(e.target.value)} className="w-full rounded-lg border p-2 text-sm">
-              <option value="all">Toate corpurile</option><option value="base">Corpuri inferioare</option><option value="wall">Suspendate</option><option value="tall">Coloane</option>
+              <option value="all">Toate corpurile</option><option value="base">Corpuri inferioare</option><option value="wall">Suspendate</option><option value="tall">Coloane</option><option value="accessory">Accesorii</option>
             </select>
             <div className="max-h-72 space-y-2 overflow-y-auto">
               {catalogueMatches.map(sku => <div key={sku.sku} className="rounded-lg border p-2 text-xs space-y-1">
@@ -1000,7 +1015,7 @@ function formatSignedRon(value: number): string {
 function wallCabinetCenter(cabinet: Cabinet, wallA: number): { x: number; z: number; rotationYDegrees: 0 | 90 | 180 | 270 } {
   const isWall = WALL_CAB_TYPES.includes(cabinet.type);
   const isTall = TALL_TYPES.includes(cabinet.type);
-  const wallDepth = isWall ? RULES.WALL_DEPTH / 2 + 1.5 : isTall ? RULES.BASE_DEPTH / 2 + 2.5 : RULES.BASE_DEPTH / 2 + 5;
+  const wallDepth = cabinet.depth / 2 + cabinetWallGapCm(cabinet);
 
   if (cabinet.wall === "B") return { x: wallDepth, z: cabinet.xPos + cabinet.width / 2, rotationYDegrees: 90 };
   if (cabinet.wall === "C") return { x: wallA - wallDepth, z: cabinet.xPos + cabinet.width / 2, rotationYDegrees: 270 };
@@ -1031,7 +1046,7 @@ function freePlacementWarnings(
 
   const overlapsCabinet = cabinets.some((other) =>
     cabinetKey(other) !== cabinetKey(cabinet) &&
-    cabinetLayer(other) === cabinetLayer(cabinet) &&
+    verticalOverlap(cabinetYRange(other), cabinetYRange(cabinet)) &&
     footprintsOverlap(footprint, cabinetFootprint(other, dimensions.wallA))
   );
   if (overlapsCabinet) warnings.push("Corpul se suprapune cu un alt corp.");
@@ -1111,7 +1126,7 @@ function cabinetSupportsDoorDirection(cabinet: Cabinet): boolean {
 
 function layerCabinets(allCabinets: Cabinet[], cabinet: Cabinet): Cabinet[] {
   return allCabinets
-    .filter((item) => item.placementMode !== "free" && item.wall === cabinet.wall && cabinetLayer(item) === cabinetLayer(cabinet))
+    .filter((item) => item.placementMode !== "free" && item.wall === cabinet.wall && cabinetLayer(item) === cabinetLayer(cabinet) && verticalOverlap(cabinetYRange(item), cabinetYRange(cabinet)))
     .sort((a, b) => a.xPos - b.xPos);
 }
 
@@ -1186,8 +1201,7 @@ function editorWallEnd(
 }
 
 function cabinetYRange(cabinet: Cabinet): [number, number] {
-  if (WALL_CAB_TYPES.includes(cabinet.type)) return [146.9, 146.9 + cabinet.height];
-  return [0, cabinet.height];
+  return cabinetVerticalRange(cabinet);
 }
 
 function rangesOverlap(aStart: number, aEnd: number, bStart: number, bEnd: number): boolean {
@@ -1222,6 +1236,7 @@ function isValidEditorSlot(
   if (xPos < min || xPos + cabinet.width > max) return false;
 
   const yRange = cabinetYRange(cabinet);
+  if (dimensions.height && yRange[1] > dimensions.height) return false;
   if (checkAcrossWalls) {
     const footprint = cabinetFootprint({ ...cabinet, xPos }, dimensions.wallA);
     for (const other of allCabinets) {
@@ -1237,7 +1252,7 @@ function isValidEditorSlot(
   for (const other of allCabinets) {
     if (other.placementMode === "free") continue;
     if (cabinetKey(other) === cabinetKey(cabinet) || other.wall !== cabinet.wall) continue;
-    if (cabinetLayer(other) !== layer) continue;
+    if (cabinetLayer(other) !== layer || !verticalOverlap(yRange, cabinetYRange(other))) continue;
     if (rangesOverlap(start, end, other.xPos, other.xPos + other.width)) return false;
   }
 
@@ -1544,4 +1559,27 @@ function ViewerSkeleton() {
       </div>
     </div>
   );
+}
+
+/** Do not export a kitchen while an on-demand GLB or attached accessory is loading. */
+async function waitForCabinetModels(scene: Scene | null, cabinets: Cabinet[]) {
+  if (!scene) throw new Error("Scena 3D nu este pregatita. Asteptati incarcarea.");
+  const expected = cabinets.map(c => c.id ?? `${c.sku}-${c.wall}-${c.type}-${c.xPos}-${c.zPos ?? 0}`);
+  const deadline = Date.now() + 15000;
+  do {
+    const loaded = new Set<string>();
+    scene.traverse(object => {
+      const data = object.userData;
+      if (data.asab?.asabType !== "cabinet" || data.excludeFromGLB) return;
+      let realMesh = false;
+      object.traverse(child => {
+        const mesh = child as any;
+        if (mesh.isMesh && !(Array.isArray(mesh.material) ? mesh.material : [mesh.material]).some((m: any) => m.wireframe)) realMesh = true;
+      });
+      if (realMesh) loaded.add(data.asab.cabinetId);
+    });
+    if (expected.every(id => loaded.has(id))) return;
+    await new Promise<void>(resolve => setTimeout(resolve, 100));
+  } while (Date.now() < deadline);
+  throw new Error("Unele modele nu au fost incarcate. Verificati conexiunea si reincercati exportul.");
 }

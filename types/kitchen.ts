@@ -4,7 +4,7 @@ export type DoorDirection = "S" | "D";
 export type InternalRole = "admin" | "designer";
 export type CabinetPlacementMode = "wall" | "free";
 
-export type DesignCollectionId = "japandi" | "germain" | "franc";
+export type DesignCollectionId = "smart" | "japandi" | "germain" | "franc";
 
 export interface DesignCollection {
   id: DesignCollectionId;
@@ -81,6 +81,8 @@ export type CabinetType =
   | "panel" | "accessory";
 
 export interface Cabinet {
+  drainerSku?: string;
+  mountHeightCm?: number;
   displaySku?: string;
   pricingNote?: string;
   priceSource?: "catalogue" | "custom" | "legacy";

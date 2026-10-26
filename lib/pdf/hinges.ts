@@ -3,7 +3,7 @@ export type HingeSide = "left" | "right";
 /** Opening symbols describe the configured handing, not manufacturing hinge-hole positions. */
 export function doorHingeSides(cabinet: Cabinet): HingeSide[] {
   if (!["base", "base-sink", "wall", "wall-hood"].includes(cabinet.type)) return [];
-  const model = (cabinet.displaySku ?? cabinet.catalogProduct?.sku ?? cabinet.baseSku ?? cabinet.sku).replace(/-(jpn|grm|frc|soh)$/i, "");
+  const model = (cabinet.displaySku ?? cabinet.catalogProduct?.sku ?? cabinet.baseSku ?? cabinet.sku).replace(/-(smt|jpn|grm|frc|soh)$/i, "");
   const name = (cabinet.catalogProduct?.name ?? cabinet.label ?? "").toLowerCase();
   if (/sertar|lift|piston|jolly/i.test(name)) return [];
   if (/-2U-(RAFT|W)/i.test(model) || ["1005", "1013", "2013"].includes(model)) return ["left", "right"];

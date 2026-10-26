@@ -214,7 +214,7 @@ function layoutLabel(layout: LayoutType): string {
 
 function collectionLabel(collection?: DesignCollectionId): string {
   const labels: Record<DesignCollectionId, string> = {
-    japandi: "Japandi",
+    smart: "Smart", japandi: "Japandi",
     germain: "Germain",
     franc: "Franc",
   };

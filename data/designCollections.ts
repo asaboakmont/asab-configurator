@@ -1,6 +1,7 @@
 import type { BacksplashTexture, BudgetRange, DesignCollection, FloorTexture } from "@/types/kitchen";
 
 export const DESIGN_COLLECTIONS: DesignCollection[] = [
+  { id: "smart", name: "Smart", description: "Linii simple, manere discrete si solutii practice pentru fiecare zi.", priceTier: "entry", handleMode: "handles", doorStyle: "minimal" },
   {
     id: "japandi",
     name: "Japandi",

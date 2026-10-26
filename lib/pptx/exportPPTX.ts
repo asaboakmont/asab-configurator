@@ -1,3 +1,4 @@
+import { cabinetDocumentSku } from "@/lib/pricing/catalogPrices";
 import JSZip from "jszip";
 import type { PDFExportOptions } from "@/lib/pdf/exportPDF";
 import { calculateExportPricing } from "@/lib/pricing/exportPricing";
@@ -123,7 +124,7 @@ export async function buildKitchenPPTX(template: ArrayBuffer, opts: PDFExportOpt
     for (let i = 0; i < 12; i++) {
       const cabinet = opts.cabinets[page * 12 + i];
       setText(doc, `CABINET_${i + 1}`, cabinet
-        ? `${page * 12 + i + 1}. ${cabinet.sku}${cabinet.isCustom ? " ***dimensiune personalizata" : ""} / ${cabinet.width}x${cabinet.height}x${cabinet.depth} / ${cabinet.placementMode === "free" ? "Liber" : cabinet.wall} / ${money(cabinet.price ?? 0)}`
+        ? `${page * 12 + i + 1}. ${cabinetDocumentSku(cabinet)}${cabinet.drainerSku ? " + scurgator inclus" : ""}${cabinet.isCustom ? " ***dimensiune personalizata" : ""} / ${cabinet.width}x${cabinet.height}x${cabinet.depth} / ${cabinet.placementMode === "free" ? "Liber" : cabinet.wall} / ${money(cabinet.price ?? 0)}`
         : "");
     }
     write(`ppt/slides/slide${number}.xml`, doc);

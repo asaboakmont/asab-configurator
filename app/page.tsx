@@ -158,6 +158,7 @@ function parseOven(value: string | null): OvenPlacement {
 }
 
 function parseCollection(value: unknown): DesignCollectionId {
+  if (value === "smart") return "smart";
   if (value === "germain" || value === "franc") return value;
   return "japandi";
 }

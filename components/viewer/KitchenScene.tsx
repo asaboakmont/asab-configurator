@@ -1,4 +1,9 @@
 "use client";
+import { cabinetBottomCm, cabinetWallGapCm, legacyWallCornerSku } from '@/lib/asab/cabinetPlacement';
+import NativeCabinetModel from "./NativeCabinetModel";
+import ConfiguratorPerformanceMonitor from "./ConfiguratorPerformanceMonitor";
+import NativePerformanceProbe, { type NativeFrameSample } from "./NativePerformanceProbe";
+import { nativeModel } from "@/lib/catalog/nativeCatalogue";
 import { kitchenExportCorner, kitchenExportDirection } from "@/lib/render/exportCameras";
 import ImportedCabinetModel from "./ImportedCabinetModel";
 import React, { useMemo } from "react";
@@ -15,6 +20,8 @@ import { cabinetWidthScale } from "@/lib/asab/cabinetSizing";
 import { getSkuByCode, stripCollectionSku } from "@/data/skus";
 
 interface KitchenSceneProps {
+  onPerformanceSample?: (sample: NativeFrameSample) => void;
+  benchmarkOrbit?: boolean;
   onSceneReady?: (scene: THREE.Scene | null) => void;
   cabinets: Cabinet[];
   colorway: Colorway;
@@ -142,6 +149,7 @@ function hasNonUnitScale(object: THREE.Object3D | null | undefined): boolean {
 }
 
 const COLLECTION_MODEL_PREFIX: Record<DesignCollectionId, string> = {
+  smart: "SMT",
   japandi: "jpn",
   germain: "grm",
   franc: "frc",
@@ -204,6 +212,7 @@ function createDoorMaterial(colorway: Colorway): THREE.Material {
 }
 
 export default function KitchenScene({
+  onPerformanceSample, benchmarkOrbit = false,
   onSceneReady,
   cabinets,
   colorway,
@@ -247,6 +256,8 @@ export default function KitchenScene({
       }}
     >
       <SceneExportBridge onSceneReady={onSceneReady} />
+      {process.env.NODE_ENV === "development" && onPerformanceSample && <NativePerformanceProbe onSample={onPerformanceSample} orbit={benchmarkOrbit} controlsRef={controlsRef} wallA={wallA} />}
+      {process.env.NODE_ENV === "development" && !onPerformanceSample && <ConfiguratorPerformanceMonitor cabinets={cabinets} colorway={colorway} controlsRef={controlsRef} wallA={wallA} collection={collection} />}
       <SceneQualitySetup />
       <ConstructionPaperBackground />
       <SoftShadows size={18} samples={12} focus={0.75} />
@@ -482,7 +493,7 @@ function AdminCamera({ cabinets, wallA, focusWall, preset, controlsRef, cornerSi
       minX = Math.min(minX, x - halfX); maxX = Math.max(maxX, x + halfX);
       minZ = Math.min(minZ, z - halfZ); maxZ = Math.max(maxZ, z + halfZ);
     }
-    const height = Math.max(220, ...cabinets.map(c => c.height + (c.type.startsWith("wall") ? 146.9 : 0))) * CM;
+    const height = Math.max(220, ...cabinets.map(c => cabinetBottomCm(c) + c.height)) * CM;
     const target = new THREE.Vector3((minX + maxX) / 2, height / 2, (minZ + maxZ) / 2);
     const perspective = camera as THREE.PerspectiveCamera;
     perspective.fov = 50;
@@ -1628,7 +1639,7 @@ function CabinetMeshGLB({
   doorDirection: "S" | "D";
 }) {
   const { sku } = cabinet;
-  const baseSku = cabinet.baseSku ?? stripCollectionSku(sku);
+  const baseSku = legacyWallCornerSku(cabinet) ?? cabinet.baseSku ?? stripCollectionSku(sku);
 
   const [loadError, setLoadError] = React.useState("");
   const [loadAttempt, setLoadAttempt] = React.useState(0);
@@ -1878,7 +1889,7 @@ function CabinetMeshGLB({
     shouldFlattenChildRotations && !shouldPreserveChildRotation(mesh) ? [0, 0, 0] as [number, number, number] : mesh.rotation;
 
   return (
-    <group name={cabinetObjectName(cabinet)} userData={cabinetExportData(cabinet, colorway, collection)} position={[posX, posY, posZ]} rotation={[0, rotY, 0]} scale={[widthScale, 1, 1]}>
+    <group name={cabinetObjectName(cabinet)} userData={cabinetExportData({ ...cabinet, mountHeightCm: cabinetBottomCm(cabinet) }, colorway, collection)} position={[posX, posY, posZ]} rotation={[0, rotY, 0]} scale={[widthScale, 1, 1]}>
       {(() => {
         const nonDoorMeshes = meshes.filter((m) => !["door", "handle"].includes(m.matName));
         const doorMeshes = meshes.filter((m) => ["door", "handle"].includes(m.matName));
@@ -2354,6 +2365,7 @@ function CabinetMesh({
   const isWallCab = ["wall", "wall-corner", "wall-hood"].includes(type);
   const isTall = ["tall", "tall-oven", "tall-fridge"].includes(type);
   const isCorner = type === "base-corner" || type === "wall-corner";
+  const groundDepthCenter = isTall ? depth * CM / 2 : BASE_Z;
 
   let posX: number;
   let posZ: number;
@@ -2370,7 +2382,7 @@ function CabinetMesh({
       posZ = isWallCab ? WALL_Z : BASE_Z;
       rotY = Math.PI / 2;
     } else {
-      posX = isWallCab ? WALL_Z : BASE_Z;
+      posX = isWallCab ? WALL_Z : groundDepthCenter;
       posZ = xPos * CM + (width * CM) / 2;
       rotY = Math.PI / 2;
     }
@@ -2381,7 +2393,7 @@ function CabinetMesh({
       posZ = isWallCab ? WALL_Z : BASE_Z;
       rotY = -Math.PI / 2;
     } else {
-      posX = wallA * CM - (isWallCab ? WALL_Z : BASE_Z);
+      posX = wallA * CM - (isWallCab ? WALL_Z : groundDepthCenter);
       posZ = xPos * CM + (width * CM) / 2;
       rotY = -Math.PI / 2;
     }
@@ -2399,19 +2411,17 @@ function CabinetMesh({
       posZ = isWallCab ? WALL_Z : BASE_Z;
       rotY = side === "left" ? Math.PI / 2 : -Math.PI / 2;
     } else {
-      posX = side === "left" ? BASE_Z : wallA * CM - BASE_Z;
+      posX = side === "left" ? groundDepthCenter : wallA * CM - groundDepthCenter;
       posZ = xPos * CM + (width * CM) / 2;
       rotY = side === "left" ? Math.PI / 2 : -Math.PI / 2;
     }
   } else {
     posX = xPos * CM + (width * CM) / 2;
-    posZ = isWallCab ? WALL_Z : isTall ? (RULES.BASE_DEPTH / 2 + 2.5) * CM : BASE_Z;
+    posZ = isWallCab ? WALL_Z : groundDepthCenter;
     rotY = 0;
   }
 
-  const posY = isWallCab
-    ? (RULES.WALL_CAB_FROM_FLOOR + height / 2) * CM
-    : (height / 2) * CM;
+  const posY = (cabinetBottomCm(cabinet) + height / 2) * CM;
 
   const carcassMat = useMemo(
     () =>
@@ -2526,13 +2536,27 @@ function CabinetMesh({
       onRemoveSelected={onRemoveSelected}
     />
   ) : null;
+  const legacyCorner = legacyWallCornerSku(cabinet);
+  const native = legacyCorner ? undefined : nativeModel(cabinet, collection);
+  if (native?.active) {
+    // Straight blind corners use the same wall-facing pivot as ordinary cabinets.
+    const nativeY = (cabinetBottomCm(cabinet) + height / 2) * CM;
+    const nearWall = (cabinet.depth / 2 + cabinetWallGapCm(cabinet)) * CM;
+    if (cabinet.placementMode !== "free" && cabinet.wall !== "I") {
+      const side = cabinet.wall === "B" || (cabinet.wall === "P" && cabinet.runSide === "left");
+      const right = cabinet.wall === "C" || (cabinet.wall === "P" && cabinet.runSide !== "left");
+      posX = side ? nearWall : right ? wallA * CM - nearWall : xPos * CM + W / 2;
+      posZ = side || right ? xPos * CM + W / 2 : nearWall;
+    }
+    return <>{editMode && <CabinetSelectionTarget position={[posX, nativeY, posZ]} rotationY={rotY} width={W} height={H} depth={D} selected={selected} onSelect={onSelect} onMoveSelected={onMoveSelected} onRemoveSelected={onRemoveSelected} />}<NativeCabinetModel cabinet={cabinet} colorway={colorway} collection={collection} position={[posX, nativeY, posZ]} rotationY={rotY} /></>;
+  }
   if (cabinet.catalogProduct) {
     return <>{selectionOverlay}<ImportedCabinetModel cabinet={cabinet} colorway={colorway} collection={collection} position={[posX, posY, posZ]} rotationY={rotY} /></>;
   }
   const BROKEN_SKUS: string[] = [];
 
   const hasModel =
-    MODEL_SKUS.includes(cabinet.baseSku ?? stripCollectionSku(cabinet.sku)) &&
+    MODEL_SKUS.includes(legacyCorner ?? cabinet.baseSku ?? stripCollectionSku(cabinet.sku)) &&
     !BROKEN_SKUS.includes(cabinet.baseSku ?? stripCollectionSku(cabinet.sku));
 
   if (hasModel) {
@@ -2549,7 +2573,7 @@ function CabinetMesh({
       glbPosY += 10 * CM;
     }
 
-    const WALL_OFFSET = isWallCab ? 0 * CM : 5.0 * CM;
+    const WALL_OFFSET = isWallCab || isTall ? 0 : 5.0 * CM;
 
     if (cabinet.placementMode === "free") {
       // Rotate the native lower-left origin offset around the stored centre.
@@ -2588,7 +2612,7 @@ function CabinetMesh({
     }
 
     const fallback = (
-      <group name={cabinetObjectName(cabinet)} userData={cabinetExportData(cabinet, colorway, collection)} position={[posX, posY, posZ]} rotation={[0, rotY, 0]}>
+      <group name={cabinetObjectName(cabinet)} userData={cabinetExportData({ ...cabinet, mountHeightCm: cabinetBottomCm(cabinet) }, colorway, collection)} position={[posX, posY, posZ]} rotation={[0, rotY, 0]}>
         <mesh>
           <boxGeometry args={[width * CM, height * CM, depth * CM]} />
           <meshBasicMaterial wireframe color="#b91c1c" />
@@ -2640,7 +2664,7 @@ function CabinetMesh({
 
       {selectionOverlay}
 
-      <group name={cabinetObjectName(cabinet)} userData={cabinetExportData(cabinet, colorway, collection)} position={[posX, posY, posZ]} rotation={[0, rotY, 0]}>
+      <group name={cabinetObjectName(cabinet)} userData={cabinetExportData({ ...cabinet, mountHeightCm: cabinetBottomCm(cabinet) }, colorway, collection)} position={[posX, posY, posZ]} rotation={[0, rotY, 0]}>
       <CabinetBoxEdgeLines
         width={W}
         height={H}

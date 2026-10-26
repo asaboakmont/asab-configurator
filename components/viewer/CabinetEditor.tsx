@@ -1,4 +1,5 @@
 "use client";
+import { cabinetVerticalRange } from '@/lib/asab/cabinetPlacement';
 import { useState } from "react";
 import { useConfigStore } from "@/store/configuratorStore";
 import { BASE_CABINETS, WALL_CABINETS, TALL_CABINETS, applyCollectionToCabinet, applyCollectionToCabinets } from "@/data/skus";
@@ -97,8 +98,7 @@ function wallEnd(wall: WallSide, dimensions: { wallA: number; wallB?: number; pe
 }
 
 function cabinetYRange(cab: Cabinet): [number, number] {
-  if (WALL_CAB_TYPES.includes(cab.type)) return [146.9, 146.9 + cab.height];
-  return [0, cab.height];
+  return cabinetVerticalRange(cab);
 }
 
 function rangesOverlap(aStart: number, aEnd: number, bStart: number, bEnd: number): boolean {

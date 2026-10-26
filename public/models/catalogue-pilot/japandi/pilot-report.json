@@ -1,0 +1,22 @@
+[
+  {
+    "sku": "ASAB-CI-1U-RAFT-W0600-JPN",
+    "sourceBytes": 2863440,
+    "pilotBytes": 1742448,
+    "sourcePrimitives": 2986,
+    "pilotPrimitives": 15,
+    "triangles": 46358,
+    "sourceSha256": "ad7121ccce3688581a20549d10986d3d5606064b36a2cb2ca51045e6c91c7d2d",
+    "pilotSha256": "5339cbd48c5f1c6b067107b3be23b70aba010113928b5c3d293a3bf57cd8542c"
+  },
+  {
+    "sku": "ASAB-CS-1U-RAFT-W0600-JPN",
+    "sourceBytes": 1286156,
+    "pilotBytes": 780152,
+    "sourcePrimitives": 1350,
+    "pilotPrimitives": 9,
+    "triangles": 20768,
+    "sourceSha256": "e48f85274ec104b173dc6ce8a303c257ba29b90cac387d2c16bbcfe421a6471f",
+    "pilotSha256": "579d6dafc5e436dbfc33fea4c69004adeeeab02263b6ddac38132c7afdd23881"
+  }
+]
