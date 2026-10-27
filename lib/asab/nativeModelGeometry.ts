@@ -80,7 +80,11 @@ export function buildNativeModel(source: THREE.Group, product: NativeProduct, ca
     });
     const mesh = new THREE.Mesh(geometry, Array.isArray(object.material) ? materials : materials[0]);
     mesh.name = object.name; mesh.castShadow = mesh.receiveShadow = true;
-    mesh.userData = { asab: { category, sourceSku: accessory ? cabinet.drainerSku : product.sku } };
+    // Fixed corner facings share the door finish but remain body geometry:
+    // interior/doorless exports must keep these panels in place.
+    const fixedFront = !accessory && /^Corner[ _-]+fixed[ _-]+panel(?:[ _-]|$)/i.test(object.name);
+    mesh.userData = { asab: { category, sourceSku: accessory ? cabinet.drainerSku : product.sku,
+      ...(fixedFront ? { finishRole: 'front' } : {}) } };
     group.add(mesh);
   });
   append(source, false); if (drainer) append(drainer, true); if (hoodFront) append(hoodFront, false, true);
@@ -98,14 +102,15 @@ export function applyNativeMaterials(scene: THREE.Group, colorway: NativeFinish)
   scene.traverse(object => {
     if (!(object instanceof THREE.Mesh)) return;
     const category = object.userData.asab?.category;
+    const frontFinish = category === 'front' || object.userData.asab?.finishRole === 'front';
     for (const original of Array.isArray(object.material) ? object.material : [object.material]) {
       if (updated.has(original)) continue;
       updated.add(original);
       const material = original as THREE.MeshStandardMaterial;
-      if (category === 'front') material.color.set(colorway.doorHex);
-      if (category === 'carcass') material.color.set(colorway.carcassHex);
+      if (frontFinish) material.color.set(colorway.doorHex);
+      else if (category === 'carcass') material.color.set(colorway.carcassHex);
       if (category === 'handle') material.color.set(colorway.handleHex);
-      material.roughness = category === 'front' ? (colorway.finish === 'lucios' ? .2 : .65) : category === 'drainer' ? .3 : .6;
+      material.roughness = frontFinish ? (colorway.finish === 'lucios' ? .2 : .65) : category === 'drainer' ? .3 : .6;
       material.metalness = ['hardware', 'handle', 'drainer'].includes(category) ? .35 : 0;
     }
   });
