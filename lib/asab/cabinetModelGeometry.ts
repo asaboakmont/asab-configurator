@@ -77,7 +77,11 @@ export function wallCornerHandleParts(geometry: THREE.BufferGeometry, sourceWidt
 export function prepareWallCornerHandles(geometry: THREE.BufferGeometry, sourceWidth: number, sourceDepth: number, leftHand: boolean, align: boolean, outwardMetres: number) {
  return wallCornerHandleParts(geometry, sourceWidth, leftHand).map(part => {
   if (align) calibrateWallCornerGeometry(part.geometry, sourceWidth, sourceDepth, leftHand, true);
-  part.geometry.translate(part.normal.x * outwardMetres, 0, part.normal.z * outwardMetres);
+  // Native 700mm wall units place the handle lower edge at 15.5mm above
+  // the carcass bottom. Match that baseline without resizing legacy hardware.
+  part.geometry.computeBoundingBox();
+  const verticalOffset = align ? .0155 - part.geometry.boundingBox!.min.y : 0;
+  part.geometry.translate(part.normal.x * outwardMetres, verticalOffset, part.normal.z * outwardMetres);
   return part.geometry;
  });
 }

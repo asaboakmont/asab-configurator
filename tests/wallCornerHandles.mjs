@@ -8,6 +8,12 @@ const near=(a,b,message)=>assert(Math.abs(a-b)<1e-6,`${message}: ${a} != ${b}`);
 let checked=0;
 for(const collection of ['smart','franc'])for(const side of ['STG','DR']){
  const file=collection==='smart'?`models/2001-${side}.glb`:`franc/2001-${side}-frc.glb`;
+ const regularBytes=fs.readFileSync(`${root}/public/models/catalogue-optimized/${collection}/ASAB-CS-1U-RAFT-W0600-${collection==='smart'?'SMT':'FRC'}.glb`);
+ const {scene:regular}=await new GLTFLoader().parseAsync(regularBytes.buffer.slice(regularBytes.byteOffset,regularBytes.byteOffset+regularBytes.byteLength),'');
+ regular.updateMatrixWorld(true);let regularHandleBottom=Infinity;
+ regular.traverse(m=>{if(m.isMesh&&/handle/i.test(m.name))regularHandleBottom=Math.min(regularHandleBottom,new T.Box3().setFromObject(m).min.y);});
+ assert(Number.isFinite(regularHandleBottom),'native reference must contain a handle');
+
  const bytes=fs.readFileSync(`${root}/public/${file}`),{scene}=await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),'');
  const snapshot=JSON.stringify(scene.toJSON()),left=side==='STG',anchor=api.cornerModelAnchor(scene,left),bounds=new T.Box3().setFromObject(scene).applyMatrix4(anchor);
  const inputs=[];scene.traverse(m=>{if(m.isMesh&&/handle/i.test(m.material.name))inputs.push(api.bakeCabinetMeshGeometry(m).applyMatrix4(anchor));});
@@ -19,6 +25,7 @@ for(const collection of ['smart','franc'])for(const side of ['STG','DR']){
   prepared.forEach((g,i)=>{
    g.computeBoundingBox();parts[i].geometry.computeBoundingBox();const box=g.boundingBox,before=parts[i].geometry.boundingBox;
    near(box.getSize(new T.Vector3()).distanceTo(before.getSize(new T.Vector3())),0,'rigid handle size');
+   near(box.min.y,align?regularHandleBottom:before.min.y,'corner handle bottom matches regular native wall units; public height unchanged');
    assert(box.max.x-box.min.x<.05 && box.max.z-box.min.z<.05,'handles must not span the corner');
    const normal=parts[i].normal;
    const plane=normal.z? (align?.333:.288) : (left? (align?.667:bounds.max.x-.288) : (align?.333:.288));
