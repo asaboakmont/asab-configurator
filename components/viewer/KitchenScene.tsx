@@ -4,6 +4,7 @@ import { automaticWorktopSpan, isWorktopSupport, isPlinthSupport } from "@/lib/a
 import DesignPieceMesh from "./DesignPieceMesh";
 import { effectiveCabinetColorway } from "@/lib/asab/designPieces";
 import NativeCabinetModel from "./NativeCabinetModel";
+import { cabinetHasHandles } from "@/lib/asab/nativeModelGeometry";
 import ConfiguratorPerformanceMonitor from "./ConfiguratorPerformanceMonitor";
 import NativePerformanceProbe, { type NativeFrameSample } from "./NativePerformanceProbe";
 import { nativeModel } from "@/lib/catalog/nativeCatalogue";
@@ -1789,6 +1790,7 @@ function CabinetMeshGLB({
                 : child.material?.name ?? "carcass";
 
               const matName = normalizeMaterialName(rawMatName);
+              if (matName === "handle" && !cabinetHasHandles(collection, baseSku, cabinet.type)) return;
 
               const bakedGeometry = bakeCabinetMeshGeometry(child);
               if (cornerAnchor) bakedGeometry.applyMatrix4(cornerAnchor);
@@ -2505,6 +2507,7 @@ function StandardCabinetMesh({
   const REVEAL = 0.4 * CM;
   const numDoors = width >= 70 ? 2 : 1;
   const hasDoors = type !== "base-dishwasher";
+  const hasHandles = cabinetHasHandles(collection, cabinet.baseSku ?? cabinet.sku, type);
   const doorH = H - T * 2 - PLINTH_H - DOOR_GAP;
   const doorW = numDoors === 2 ? (W - T * 2 - DOOR_GAP) / 2 : W - T * 2 - DOOR_GAP;
   const handleY = isWallCab
@@ -2747,7 +2750,7 @@ function StandardCabinetMesh({
             <boxGeometry args={[doorW - REVEAL * 2, doorH - REVEAL * 2, 0.1 * CM]} />
           </mesh>
 
-          <mesh
+          {hasHandles && (<mesh
             material={handleMat}
             position={[
               cabinet.doorDirection === "D" ? -(doorW / 2 - 3.5 * CM) : doorW / 2 - 3.5 * CM,
@@ -2763,7 +2766,7 @@ function StandardCabinetMesh({
             receiveShadow
           >
             <boxGeometry args={[0.8 * CM, 12 * CM, 0.9 * CM]} />
-          </mesh>
+          </mesh>)}
         </group>
       )}
 
@@ -2786,7 +2789,7 @@ function StandardCabinetMesh({
               <boxGeometry args={[doorW - REVEAL * 2, doorH - REVEAL * 2, 0.1 * CM]} />
             </mesh>
 
-            <mesh
+            {hasHandles && (<mesh
               material={handleMat}
               position={[
                 cabinet.doorDirection === "D" ? -(doorW / 2 - 3 * CM) : doorW / 2 - 3 * CM,
@@ -2799,7 +2802,7 @@ function StandardCabinetMesh({
               receiveShadow
             >
               <boxGeometry args={[0.8 * CM, 12 * CM, 0.9 * CM]} />
-            </mesh>
+            </mesh>)}
           </group>
 
           <group position={[doorW / 2 + DOOR_GAP / 2, -PLINTH_H / 2, D / 2 + T / 2]}>
@@ -2819,7 +2822,7 @@ function StandardCabinetMesh({
               <boxGeometry args={[doorW - REVEAL * 2, doorH - REVEAL * 2, 0.1 * CM]} />
             </mesh>
 
-            <mesh
+            {hasHandles && (<mesh
               material={handleMat}
               position={[
                 cabinet.doorDirection === "D" ? doorW / 2 - 3 * CM : -(doorW / 2 - 3 * CM),
@@ -2832,7 +2835,7 @@ function StandardCabinetMesh({
               receiveShadow
             >
               <boxGeometry args={[0.8 * CM, 12 * CM, 0.9 * CM]} />
-            </mesh>
+            </mesh>)}
           </group>
         </>
       )}

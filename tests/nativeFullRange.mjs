@@ -42,6 +42,7 @@ for(const [i,p]of rows.entries()){
   else sourceWithoutFronts.push(p.sku);
   assert(model.children.some(m=>m.userData.asab.category==='carcass'),p.sku+' carcass');
  }
+ if(p.baseSku.startsWith('ASAB-SP-')||(p.collection==='germain'&&p.type.startsWith('wall')))assert(!model.children.some(m=>m.userData.asab.category==='handle'),'Handleless SP/Germain wall '+p.sku);
  if(p.collection==='japandi'&&p.type.startsWith('wall'))assert(!model.children.some(m=>m.userData.asab.category==='handle'),'Japandi push open '+p.sku);
  const ids=model.children.map(m=>m.geometry.uuid);
  applyNativeMaterials(model,{...colour,doorHex:'#334455'});

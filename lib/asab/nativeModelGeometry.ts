@@ -2,6 +2,11 @@ import * as THREE from 'three';
 import type { NativeProduct } from '@/lib/catalog/nativeCatalogue';
 import type { Cabinet, Colorway } from '@/types/kitchen';
 
+/** SP fronts and Germain wall fronts use handleless opening across viewer/export paths. */
+export function cabinetHasHandles(collection: string, sku: string, type: string): boolean {
+  return !/^ASAB-SP-/i.test(sku) && !(collection === 'germain' && type.startsWith('wall'));
+}
+
 export function nativePartCategory(name: string): string {
   if (/hinge|piston|lift|plate|runner|slide|hardware/i.test(name) && !/^Door|^DrawerFront/i.test(name)) return 'hardware';
   if (/handle|profile/i.test(name)) return 'handle';
@@ -38,6 +43,7 @@ export function buildNativeModel(source: THREE.Group, product: NativeProduct, ca
     if (!(object instanceof THREE.Mesh)) return;
     if (!accessory && drainer && /^Shelf\d*/i.test(object.name)) return;
     const category = accessory ? 'drainer' : nativePartCategory(object.name);
+    if (category === 'handle' && !cabinetHasHandles(product.collection, product.baseSku, product.type)) return;
     if (hood && !['front', 'handle', 'hardware'].includes(category)) return;
     const geometry = object.geometry.clone().applyMatrix4(object.matrixWorld);
     const positions = geometry.getAttribute('position');
