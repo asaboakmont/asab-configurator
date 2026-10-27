@@ -472,7 +472,7 @@ export default function StepViewer() {
         if (res.ok) { const data = await res.json(); cartUrl = data.checkoutUrl; }
       } catch(e) { console.warn("Cart URL failed:", e); }
       const technical = liveScene
-        ? await (await import("@/lib/pdf/technicalViews")).captureTechnicalViews(liveScene, cabinets).catch(() => ({ worktopImage: undefined, images: [], cabinetImages: [], warnings: ["Vederile 3D in contur nu au putut fi generate. Schemele individuale sunt orientative."] }))
+        ? await (await import("@/lib/pdf/technicalViews")).captureTechnicalViews(liveScene, cabinets, isInternal).catch(() => ({ worktopImage: undefined, images: [], cabinetImages: [], warnings: ["Vederile 3D in contur nu au putut fi generate. Schemele individuale sunt orientative."] }))
         : { worktopImage: undefined, images: [], cabinetImages: [], warnings: ["Scena 3D nu este disponibila. Schemele individuale sunt orientative."] };
       await exportKitchenPDF({ worktopView: technical.worktopImage, technicalViews: technical.images, cabinetViews: technical.cabinetImages, technicalWarnings: technical.warnings, enhancedPDF: true, includeCabinetTotal: true, cabinets: cabinets, colorway, handle: colorway.handle, totalPrice, layout, dimensions, screenshots, cartUrl, configuratorUrl, contact: { name, phone, email, city }, constraints: activeConstraints, collection, roomFinishes });
     } catch (error) {

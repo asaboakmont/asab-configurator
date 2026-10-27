@@ -13,8 +13,18 @@ export function kitchenIsometricDirection(cabinets: Cabinet[]) {
 }
 export const cabinetKey = (c: Cabinet) => c.id ?? `${c.sku}-${c.wall}-${c.type}-${c.xPos}-${c.zPos ?? 0}`;
 
+/** Look at both door faces of the actual handed corner, in world coordinates. */
+export function cabinetTechnicalDirection(c: Cabinet, rotation: THREE.Quaternion, internalPreview = false) {
+  if (internalPreview && c.type === "wall-corner") {
+    const left = c.cornerSide === "STG" || /STG/.test(c.baseSku ?? c.sku);
+    return new THREE.Vector3(left ? -1 : 1, .3, 1).applyQuaternion(rotation);
+  }
+  return c.wall === "B" ? new THREE.Vector3(1,.3,1) : c.wall === "C" ? new THREE.Vector3(-1,.3,1) : new THREE.Vector3(.5,.3,1);
+}
+
+
 /** A separate renderer owns its geometry/materials. Never mutate the live viewer. */
-export async function captureTechnicalViews(source: THREE.Scene, cabinets: Cabinet[]) {
+export async function captureTechnicalViews(source: THREE.Scene, cabinets: Cabinet[], internalPreview = false) {
   source.updateMatrixWorld(true);
   const roots: THREE.Object3D[] = [], worktopAndPlinths: THREE.Object3D[] = [];
   source.traverse(o => {
@@ -83,7 +93,7 @@ export async function captureTechnicalViews(source: THREE.Scene, cabinets: Cabin
     for (const c of cabinets) {
       const id = cabinetKey(c), root = allowed.find(o => o.userData.asab?.cabinetId === id);
       if (!root) {warnings.push(`Model indisponibil pentru ${c.displaySku ?? c.sku}.`);continue;}
-      const direction = c.wall === "B" ? new THREE.Vector3(1,.3,1) : c.wall === "C" ? new THREE.Vector3(-1,.3,1) : new THREE.Vector3(.5,.3,1);
+      const direction = cabinetTechnicalDirection(c, root.getWorldQuaternion(new THREE.Quaternion()), internalPreview);
       const image = render([root],direction,"Contur din modelul 3D");
       if(image){
         let frontParts=0,bodyParts=0;

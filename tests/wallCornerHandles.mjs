@@ -83,3 +83,23 @@ for(const collection of ['smart','franc'])for(const side of ['STG','DR']){
  }
 }
 console.log('PASS: actual CabinetMeshGLB React output keeps identical corner handle positions for S/D, with no second global-Z offset, for both Smart and Franc hands.');
+
+// The PDF camera must look into both door faces after the corner root rotation.
+const technicalSource=fs.readFileSync(`${root}/lib/pdf/technicalViews.ts`,'utf8');
+const technicalAst=ts.createSourceFile('technical.ts',technicalSource,ts.ScriptTarget.Latest,true);
+const directionFunction=technicalAst.statements.find(n=>n.name?.text==='cabinetTechnicalDirection').getText(technicalAst);
+const cameraApi={};new Function('THREE','exports',ts.transpileModule(directionFunction,{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText)(T,cameraApi);
+for(const side of ['STG','DR'])for(const yaw of [0,Math.PI/2,-Math.PI/2]){
+ const rotation=new T.Quaternion().setFromAxisAngle(new T.Vector3(0,1,0),yaw);
+ const d=cameraApi.cabinetTechnicalDirection({type:'wall-corner',sku:`2001-${side}`,cornerSide:side},rotation,true);
+ const front=new T.Vector3(0,0,1).applyQuaternion(rotation),sideNormal=new T.Vector3(side==='STG'?-1:1,0,0).applyQuaternion(rotation);
+ assert(d.dot(front)>0 && d.dot(sideNormal)>0,'PDF camera must see both handle-bearing door faces');
+}
+console.log('PASS: PDF corner exterior camera sees both door faces for STG/DR on every wall rotation.');
+
+for(const side of ['STG','DR'])for(const wall of ['A','B','C']){
+ const d=cameraApi.cabinetTechnicalDirection({type:'wall-corner',sku:`2001-${side}`,wall},new T.Quaternion());
+ assert.deepEqual(d.toArray(),wall==='B'?[1,.3,1]:wall==='C'?[-1,.3,1]:[.5,.3,1],'public PDF keeps its previous camera');
+}
+assert(fs.readFileSync(`${root}/components/viewer/StepViewer.tsx`,'utf8').includes('captureTechnicalViews(liveScene, cabinets, isInternal)'));
+console.log('PASS: corrected PDF camera requires internal role opt-in; public camera stays unchanged.');

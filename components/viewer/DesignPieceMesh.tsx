@@ -13,7 +13,7 @@ export default function DesignPieceMesh({cabinet:c,colorway,wallA,collection,edi
     <mesh name={top?'worktop':'panel'} castShadow receiveShadow onClick={event=>{if(editMode){event.stopPropagation();onSelect?.();}}}>
       <boxGeometry args={[c.width*.1,c.height*.1,c.depth*.1]} />
       {top ? <BoardMaterial colorway={colorway} /> : <meshStandardMaterial color={colorway.doorHex} roughness={colorway.finish==='lucios'?.22:.65} />}
-      <Edges threshold={20} color={selected?'#e49d28':'#4f4b46'} userData={{excludeFromGLB:true}} />
+      {editMode && selected && <Edges threshold={20} color="#e49d28" lineWidth={0.8} transparent opacity={0.65} depthWrite={false} userData={{excludeFromGLB:true}} />}
     </mesh>
   </group>;
 }

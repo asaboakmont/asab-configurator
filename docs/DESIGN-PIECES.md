@@ -23,3 +23,5 @@ Automatic recessed plinths also follow wall-aligned base filler/end-panel edges 
 Restored wall-corner handles keep the handedness encoded in the STG/DR asset; the S/D opening field does not mirror their hardware separately from the doors. Smart falls back to public/models/2001-STG.glb and 2001-DR.glb, where both handles share one mesh. Handle triangles are partitioned by door face before rigid calibration; each visibility offset follows its own front normal. Franc uses its collection-specific assets. Source GLBs remain unchanged.
 
 Internal wall-corner handles use the native wall-unit lower-edge baseline, 15.5mm above the carcass bottom. Smart legacy handles move down 21.5mm; Franc knobs approximately 5mm. Original hardware dimensions and public legacy heights are preserved.
+
+Individual design pieces have no permanent viewer edge overlay. Only selected pieces in edit mode use a thin translucent gold indicator, excluded from geometry exports. PDF technical linework is independent. For admin/designer exports only, individual wall-corner PDF camera directions follow STG/DR door normals and the root world rotation so both door faces and handles can be seen.
