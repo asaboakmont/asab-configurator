@@ -19,3 +19,5 @@ Base fillers/end panels now participate in automatic worktop envelopes. Expand â
 Restored wall-corner render copies are calibrated to 333mm front planes to align with native CS fronts, within the original nominal 1000 x 600mm footprint. Source GLBs, front thickness and handle dimensions are preserved; public legacy rendering remains unchanged.
 
 Automatic recessed plinths also follow wall-aligned base filler/end-panel edges on each wall. Wall/tall pieces and free pieces do not extend them. Manual worktop overhangs affect only the worktop; plinth height and setback stay unchanged.
+
+Restored wall-corner handles keep the handedness encoded in the STG/DR asset; the S/D opening field does not mirror their hardware separately from the doors. Smart falls back to public/models/2001-STG.glb and 2001-DR.glb, where both handles share one mesh. Handle triangles are partitioned by door face before rigid calibration; each visibility offset follows its own front normal. Franc uses its collection-specific assets. Source GLBs remain unchanged.

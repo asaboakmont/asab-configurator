@@ -42,3 +42,42 @@ export function calibrateWallCornerGeometry(geometry:THREE.BufferGeometry, sourc
  for(let i=0;i<p.count;i++)p.setXYZ(i,hardware?p.getX(i)+dx:mapX(p.getX(i)),p.getY(i),hardware?p.getZ(i)+dz:map(p.getZ(i),sourceDepth,.6));
  p.needsUpdate=true;geometry.computeBoundingBox();geometry.computeBoundingSphere();
 }
+
+/** Legacy Smart combines handles for perpendicular doors into one mesh.
+ * Partition triangles by their nearest door plane before any rigid relocation.
+ * Input is an anchored private copy in metres; originals are never changed.
+ */
+export function wallCornerHandleParts(geometry: THREE.BufferGeometry, sourceWidth: number, leftHand: boolean) {
+ const input = geometry.index ? geometry.toNonIndexed() : geometry.clone();
+ const positions = input.getAttribute('position');
+ const sidePlane = leftHand ? sourceWidth - .288 : .288;
+ const buckets: number[][] = [[], []];
+ for (let i = 0; i < positions.count; i += 3) {
+  const x = (positions.getX(i) + positions.getX(i+1) + positions.getX(i+2)) / 3;
+  const z = (positions.getZ(i) + positions.getZ(i+1) + positions.getZ(i+2)) / 3;
+  buckets[Math.abs(x-sidePlane) < Math.abs(z-.288) ? 0 : 1].push(i,i+1,i+2);
+ }
+ const parts = buckets.flatMap((vertices, face) => {
+  if (!vertices.length) return [];
+  const part = new THREE.BufferGeometry();
+  for (const name of Object.keys(input.attributes)) {
+   const attr = input.getAttribute(name);
+   const values = new Float32Array(vertices.length * attr.itemSize);
+   vertices.forEach((vertex, i) => {
+    for (let j = 0; j < attr.itemSize; j++) values[i * attr.itemSize + j] = attr.getComponent(vertex,j);
+   });
+   part.setAttribute(name, new THREE.BufferAttribute(values, attr.itemSize));
+  }
+  return [{ geometry: part, normal: new THREE.Vector3(face === 0 ? (leftHand ? -1 : 1) : 0, 0, face === 1 ? 1 : 0) }];
+ });
+ input.dispose();
+ return parts;
+}
+
+export function prepareWallCornerHandles(geometry: THREE.BufferGeometry, sourceWidth: number, sourceDepth: number, leftHand: boolean, align: boolean, outwardMetres: number) {
+ return wallCornerHandleParts(geometry, sourceWidth, leftHand).map(part => {
+  if (align) calibrateWallCornerGeometry(part.geometry, sourceWidth, sourceDepth, leftHand, true);
+  part.geometry.translate(part.normal.x * outwardMetres, 0, part.normal.z * outwardMetres);
+  return part.geometry;
+ });
+}

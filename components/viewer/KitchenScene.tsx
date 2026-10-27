@@ -18,7 +18,7 @@ import type { Cabinet, Colorway, DesignCollectionId, Obstruction, RoomConstraint
 import { cabinetExportData, cabinetObjectName } from "@/lib/asab/exportGLB";
 import { RULES } from "@/lib/rules/resolver";
 import { handleScaleCompensation } from "@/lib/asab/handleScaling";
-import { bakeCabinetMeshGeometry, cornerModelAnchor, calibrateWallCornerGeometry } from "@/lib/asab/cabinetModelGeometry";
+import { bakeCabinetMeshGeometry, cornerModelAnchor, calibrateWallCornerGeometry, prepareWallCornerHandles } from "@/lib/asab/cabinetModelGeometry";
 import { cabinetWidthScale } from "@/lib/asab/cabinetSizing";
 import { getSkuByCode, stripCollectionSku } from "@/data/skus";
 
@@ -1779,7 +1779,7 @@ function CabinetMeshGLB({
             const cornerAnchor = cabinet.type.includes("corner")
               ? cornerModelAnchor(gltf.scene, baseSku.includes("STG")) : null;
 
-            const cornerBounds = alignWallCorner && cornerAnchor ? new THREE.Box3().setFromObject(gltf.scene).applyMatrix4(cornerAnchor) : undefined;
+            const cornerBounds = cornerAnchor ? new THREE.Box3().setFromObject(gltf.scene).applyMatrix4(cornerAnchor) : undefined;
 
             gltf.scene.traverse((child: any) => {
               if (!child.isMesh || !child.geometry) return;
@@ -1790,50 +1790,57 @@ function CabinetMeshGLB({
 
               const matName = normalizeMaterialName(rawMatName);
 
-              const geometry = bakeCabinetMeshGeometry(child);
-              if (cornerAnchor) geometry.applyMatrix4(cornerAnchor);
-              if (cornerBounds) calibrateWallCornerGeometry(geometry, cornerBounds.max.x, cornerBounds.max.z, baseSku.includes("STG"), matName === "handle");
+              const bakedGeometry = bakeCabinetMeshGeometry(child);
+              if (cornerAnchor) bakedGeometry.applyMatrix4(cornerAnchor);
+              const wallCornerHandle = cabinet.type === "wall-corner" && matName === "handle" && cornerBounds;
+              const geometries = wallCornerHandle
+                ? prepareWallCornerHandles(bakedGeometry, cornerBounds.max.x, cornerBounds.max.z, baseSku.includes("STG"), alignWallCorner, GLB_HANDLE_FORWARD_OFFSET / 10)
+                : [bakedGeometry];
+              if (wallCornerHandle) bakedGeometry.dispose();
+              for (const geometry of geometries) {
+                if (cornerBounds && alignWallCorner && !wallCornerHandle) calibrateWallCornerGeometry(geometry, cornerBounds.max.x, cornerBounds.max.z, baseSku.includes("STG"), matName === "handle");
 
-              if (geometry.attributes.color) {
-                geometry.deleteAttribute("color");
-              }
+                if (geometry.attributes.color) {
+                  geometry.deleteAttribute("color");
+                }
 
-              if (geometry.attributes.normal) {
-                geometry.deleteAttribute("normal");
-              }
+                if (geometry.attributes.normal) {
+                  geometry.deleteAttribute("normal");
+                }
 
-              geometry.computeVertexNormals();
+                geometry.computeVertexNormals();
 
-              if (Array.isArray(child.material)) {
-                child.material.forEach((mat: any) => {
-                  if (!mat) return;
-                  mat.map = null;
-                  mat.normalMap = null;
-                  mat.roughnessMap = null;
-                  mat.metalnessMap = null;
-                  mat.aoMap = null;
-                  mat.emissiveMap = null;
-                  mat.vertexColors = false;
-                  mat.needsUpdate = true;
+                if (Array.isArray(child.material)) {
+                  child.material.forEach((mat: any) => {
+                    if (!mat) return;
+                    mat.map = null;
+                    mat.normalMap = null;
+                    mat.roughnessMap = null;
+                    mat.metalnessMap = null;
+                    mat.aoMap = null;
+                    mat.emissiveMap = null;
+                    mat.vertexColors = false;
+                    mat.needsUpdate = true;
+                  });
+                } else if (child.material) {
+                  child.material.map = null;
+                  child.material.normalMap = null;
+                  child.material.roughnessMap = null;
+                  child.material.metalnessMap = null;
+                  child.material.aoMap = null;
+                  child.material.emissiveMap = null;
+                  child.material.vertexColors = false;
+                  child.material.needsUpdate = true;
+                }
+
+                found.push({
+                  geometry,
+                  matName,
+                  position: [0, 0, 0],
+                  rotation: [0, 0, 0],
+                  scale: [1, 1, 1],
                 });
-              } else if (child.material) {
-                child.material.map = null;
-                child.material.normalMap = null;
-                child.material.roughnessMap = null;
-                child.material.metalnessMap = null;
-                child.material.aoMap = null;
-                child.material.emissiveMap = null;
-                child.material.vertexColors = false;
-                child.material.needsUpdate = true;
               }
-
-              found.push({
-                geometry,
-                matName,
-                position: [0, 0, 0],
-                rotation: [0, 0, 0],
-                scale: [1, 1, 1],
-              });
             });
 
             if (!found.length) { setLoadError("Modelul GLB nu contine mesh-uri."); return; }
@@ -1891,7 +1898,7 @@ function CabinetMeshGLB({
 
   const standardWidth = cabinet.standardWidth ?? getSkuByCode(cabinet.sku)?.width ?? cabinet.width;
   const widthScale = cabinetWidthScale(cabinet.width, standardWidth);
-  const mirrorDoor = doorDirection === "D";
+  const mirrorDoor = doorDirection === "D" && cabinet.type !== "wall-corner";
   const isCorner = cabinet.type === "base-corner" || cabinet.type === "wall-corner";
   const shouldFlattenChildRotations = !isCorner && cabinet.wall !== "A" && cabinet.wall !== "I";
   const shouldPreserveChildRotation = (mesh: { matName: string }) => ["door", "handle"].includes(mesh.matName);
@@ -1934,7 +1941,7 @@ function CabinetMeshGLB({
 
             {doorMeshes.map((m, i) => {
               const isHandle = m.matName === "handle";
-              const meshPosition: [number, number, number] = isHandle
+              const meshPosition: [number, number, number] = isHandle && cabinet.type !== "wall-corner"
                 ? [m.position[0], m.position[1], m.position[2] + GLB_HANDLE_FORWARD_OFFSET]
                 : m.position;
               const compensation = isHandle
