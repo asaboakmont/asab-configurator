@@ -42,3 +42,17 @@ assert.equal(mixedPrice.worktopCuts[1].run,'C','mirror return follows actual cab
 const samePrice=p.calculateExportPricing(mixed,'l-shape',{wallA:220,wallB:260,height:280,cornerSide:'left'},'white-stone');
 assert.equal(samePrice.stockByFinish.length,1,'an explicit matching finish shares the global stock group');
 console.log('PASS: stock allocation never mixes different worktop finishes; mirrored return run matches the model.');
+
+// Free creation must not require an empty wall slot; collection changes and JSON
+// round-trips preserve its actual room position and rotation.
+for(const kind of ['filler','end-panel','worktop'])for(const band of ['base','wall','tall']){
+ const free=d.freeDesignPiece(d.createDesignPiece(kind,band,'A','free-'+kind+'-'+band),room);
+ assert.equal(free.placementMode,'free');assert.deepEqual(free.freePosition,{x:200,z:150});
+ assert.equal(d.validateDesignPiece(free,room),undefined);
+ const moved={...free,freePosition:{x:150,z:120},rotationYDegrees:90};
+ const restored=JSON.parse(JSON.stringify(applyCollectionToCabinet(moved,'franc')));
+ assert.deepEqual(d.designPieceCenter(restored,room.wallA),{x:150,z:120,rotationYDegrees:90});
+ assert.equal(d.validateDesignPiece(restored,room),undefined);
+ assert(d.validateDesignPiece({...restored,freePosition:{x:-10,z:120}},room));
+}
+console.log('PASS: free creation for every panel band, coordinate/rotation updates, persistence, collection changes and room bounds.');

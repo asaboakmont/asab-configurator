@@ -48,7 +48,7 @@ export async function buildKitchenPPTX(template: ArrayBuffer, opts: PDFExportOpt
     Object.entries(values).forEach(([name, value]) => setText(doc, name, value));
     write(path, doc);
   };
-  const { cabinetSubtotal, worktopPrice, worktopDescription, total } = calculateExportPricing(opts.cabinets, opts.layout, opts.dimensions, opts.colorway.worktop);
+  const { cabinetSubtotal, worktopPrice, worktopDescription, total, worktopPricePending } = calculateExportPricing(opts.cabinets, opts.layout, opts.dimensions, opts.colorway.worktop);
   const project = `ASAB-${new Date().toISOString().slice(0, 10)}`;
   await patch(1, {
     CLIENT: `Client: ${opts.contact?.name || ""}`,
@@ -103,8 +103,8 @@ export async function buildKitchenPPTX(template: ArrayBuffer, opts: PDFExportOpt
     LEAD_TIME_LABEL: "Blat", LEAD_TIME: money(worktopPrice),
     ADVANCE_LABEL: "Numar corpuri", ADVANCE: String(opts.cabinets.length),
     WORKTOP_LINE: `Blat inclus: ${worktopDescription || "0 cm"}.`,
-    TOTAL_LABEL: opts.cabinets.some(c=>c.pricePending) ? "TOTAL PARTIAL" : "TOTAL DULAPURI + BLAT", GRAND_TOTAL: money(total),
-    TOTAL_NOTE: opts.cabinets.some(c=>c.pricePending) ? "Piese cu pret de confirmat: oferta incompleta. TVA inclus; transport si montaj separat." : "Pret estimativ, TVA inclus. Transportul si montajul se confirma separat.",
+    TOTAL_LABEL: (opts.cabinets.some(c=>c.pricePending)||worktopPricePending) ? "TOTAL PARTIAL" : "TOTAL DULAPURI + BLAT", GRAND_TOTAL: money(total),
+    TOTAL_NOTE: (opts.cabinets.some(c=>c.pricePending)||worktopPricePending) ? "Piese cu pret de confirmat: oferta incompleta. TVA inclus; transport si montaj separat." : "Pret estimativ, TVA inclus. Transportul si montajul se confirma separat.",
   });
 
   const listTemplate = await zip.file("ppt/slides/slide2.xml")!.async("string");
@@ -120,7 +120,7 @@ export async function buildKitchenPPTX(template: ArrayBuffer, opts: PDFExportOpt
     const doc = parse(listTemplate);
     setText(doc, "PROJECT_ID", `Proiect: ${project}`);
     setText(doc, "SUBTITLE", `${opts.colorway.name} / ${opts.collection ?? "Japandi"}`);
-    setText(doc, "NOTES", opts.cabinets.some(c=>c.pricePending) ? "TOTAL PARTIAL. Piese cu pret de confirmat." : "Dimensiuni L x H x A in cm. Preturi dulapuri.");
+    setText(doc, "NOTES", (opts.cabinets.some(c=>c.pricePending)||worktopPricePending) ? "TOTAL PARTIAL. Piese cu pret de confirmat." : "Dimensiuni L x H x A in cm. Preturi dulapuri.");
     for (let i = 0; i < 12; i++) {
       const cabinet = opts.cabinets[page * 12 + i];
       setText(doc, `CABINET_${i + 1}`, cabinet

@@ -39,6 +39,12 @@ const customer = { config: {}, name: 'Customer', email: 'a@example.com', phone: 
 assert.equal((await POST(request(customer))).status, 200);
 assert.equal(emailed, 2);
 assert.equal((await POST(request({ ...customer, config: { cabinets: [{ isCustom: true }] } }))).status, 403);
+for(const cabinet of [{designPiece:{kind:'end-panel',band:'base'},placementMode:'free',freePosition:{x:100,z:100}},{runWorktopDimensions:{startCm:0,lengthCm:240,depthCm:65,thicknessCm:4,manualPrice:900}}]){
+ const body={...customer,config:{cabinets:[cabinet]}};
+ assert.equal((await POST(request(body))).status,403,'Public saves cannot bypass the editor role gate');
+ for(const role of ['admin','designer'])assert.equal((await POST(request(body,auth.createInternalSession(role)))).status,200);
+}
+console.log('PASS: custom worktop/free panel saves require a signed admin/designer session.');
 const token = auth.createInternalSession('admin');
 assert.equal(auth.getInternalRole(request({}, token + '.extra')), null);
 const now = Date.now;

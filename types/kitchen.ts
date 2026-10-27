@@ -86,7 +86,7 @@ export interface Cabinet {
   designPiece?: { kind: DesignPieceKind; band: CabinetBand; replacesRun?: WallSide };
   finishOverride?: Partial<Colorway>;
   /** Optional finish of the automatic worktop over this cabinet's run. */
-  runWorktopDimensions?: { startCm: number; lengthCm: number };
+  runWorktopDimensions?: { startCm: number; lengthCm: number; depthCm?: number; thicknessCm?: number; manualPrice?: number };
   runWorktopOverride?: Pick<Colorway, "worktop" | "worktopHex">;
   pricePending?: boolean;
   manualPrice?: number;

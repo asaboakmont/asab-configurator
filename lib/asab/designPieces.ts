@@ -13,6 +13,10 @@ export function createDesignPiece(kind:DesignPieceKind, band:CabinetBand, wall:W
     mountHeightCm:kind==='worktop'?86.2:spec.bottom,
     designPiece:{kind,band},label:names[kind],price:0,pricePending:true};
 }
+/** Start free pieces in the room, independently of occupied wall slots. */
+export function freeDesignPiece(c:Cabinet, room:{wallA:number;wallB?:number}):Cabinet {
+  return {...c,placementMode:'free',freePosition:{x:room.wallA/2,z:(room.wallB??220)/2},rotationYDegrees:0};
+}
 export function priceDesignPiece(c:Cabinet, collection:DesignCollectionId):Cabinet {
   if(!c.designPiece)return c;
   const {kind}=c.designPiece;

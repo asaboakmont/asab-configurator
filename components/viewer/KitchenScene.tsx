@@ -68,8 +68,6 @@ function cabinetSceneKey(cabinet: Cabinet): string {
 const CM = 0.1;
 const BASE_Z = (RULES.BASE_DEPTH / 2 + 5.0) * CM;
 const WALL_Z = (RULES.WALL_DEPTH / 2 + 1.5) * CM;
-const WORKTOP_Z = (RULES.WORKTOP_DEPTH / 2) * CM;
-const WORKTOP_Y = (RULES.BASE_HEIGHT + RULES.WORKTOP_THICKNESS / 2) * CM;
 const WORKTOP_VISUAL_RAISE = 0.5 * CM;
 const DEFAULT_ROOM_DEPTH = 220;
 const BACKSPLASH_BOTTOM = 90.5 * CM;
@@ -2903,9 +2901,6 @@ function WorktopRun({
   }, [colorway.worktop]);
 
   React.useEffect(() => () => { mat.map?.dispose(); mat.dispose(); }, [mat]);
-  const wT = RULES.WORKTOP_THICKNESS * CM;
-  const wD = RULES.WORKTOP_DEPTH * CM;
-  const CORNER_EXT = RULES.CORNER_BASE_OFFSET * CM;
   const worktopLineColor =
     colorway.worktop === "stejar"
       ? "#6f5435"
@@ -2923,6 +2918,8 @@ function WorktopRun({
         if (wallCabs.length === 0) return null;
 
         const span = automaticWorktopSpan(wallCabs, wall)!;
+        const wD = span.depthCm * CM, wT = span.thicknessCm * CM;
+        const worktopZ = wD / 2, worktopY = (RULES.BASE_HEIGHT + span.thicknessCm / 2) * CM;
         const totalWidth = span.lengthCm * CM;
         const centerX = (span.startCm + span.lengthCm / 2) * CM;
 
@@ -2932,7 +2929,7 @@ function WorktopRun({
               name="WORKTOP_B"
               key="wt-B"
               material={mat}
-              position={[WORKTOP_Z, WORKTOP_Y + WORKTOP_VISUAL_RAISE, centerX]}
+              position={[worktopZ, worktopY + WORKTOP_VISUAL_RAISE, centerX]}
               size={[wD, wT, totalWidth]}
               edgeColor={worktopLineColor}
               edgeOpacity={worktopLineOpacity}
@@ -2946,7 +2943,7 @@ function WorktopRun({
               name="WORKTOP_C"
               key="wt-C"
               material={mat}
-              position={[wallA * CM - WORKTOP_Z, WORKTOP_Y + WORKTOP_VISUAL_RAISE, centerX]}
+              position={[wallA * CM - worktopZ, worktopY + WORKTOP_VISUAL_RAISE, centerX]}
               size={[wD, wT, totalWidth]}
               edgeColor={worktopLineColor}
               edgeOpacity={worktopLineOpacity}
@@ -2961,7 +2958,7 @@ function WorktopRun({
               name="WORKTOP_I"
               key="wt-I"
               material={mat}
-              position={[centerX, WORKTOP_Y + WORKTOP_VISUAL_RAISE, centerZ]}
+              position={[centerX, worktopY + WORKTOP_VISUAL_RAISE, centerZ]}
               size={[totalWidth, wT, wD]}
               edgeColor={worktopLineColor}
               edgeOpacity={worktopLineOpacity}
@@ -2976,7 +2973,7 @@ function WorktopRun({
               name="WORKTOP_P"
               key="wt-P"
               material={mat}
-              position={[side === "left" ? WORKTOP_Z : wallA * CM - WORKTOP_Z, WORKTOP_Y + WORKTOP_VISUAL_RAISE, centerX]}
+              position={[side === "left" ? worktopZ : wallA * CM - worktopZ, worktopY + WORKTOP_VISUAL_RAISE, centerX]}
               size={[wD, wT, totalWidth]}
               edgeColor={worktopLineColor}
               edgeOpacity={worktopLineOpacity}
@@ -2989,7 +2986,7 @@ function WorktopRun({
             name="WORKTOP_A"
             key="wt-A"
             material={mat}
-            position={[centerX, WORKTOP_Y + WORKTOP_VISUAL_RAISE, WORKTOP_Z]}
+            position={[centerX, worktopY + WORKTOP_VISUAL_RAISE, worktopZ]}
             size={[totalWidth, wT, wD]}
             edgeColor={worktopLineColor}
             edgeOpacity={worktopLineOpacity}

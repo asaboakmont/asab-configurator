@@ -199,7 +199,7 @@ export function createKitchenPDF(opts: PDFExportOptions) {
   if (y > 270) { doc.addPage(); y = 20; }
 
   // Worktop row
-const { cabinetSubtotal, worktopLengthCm, worktopPrice, worktopDescription, total, stockByFinish } = calculateExportPricing(cabinets, layout, dimensions, colorway.worktop);
+const { cabinetSubtotal, worktopLengthCm, worktopPrice, worktopDescription, total, stockByFinish, worktopPricePending, worktopCuts } = calculateExportPricing(cabinets, layout, dimensions, colorway.worktop);
 
 const worktopLabels: Record<string, { label: string; sku: string }> = {
   stejar: { label: "Blat stejar", sku: "BL-STEJAR" },
@@ -208,8 +208,9 @@ const worktopLabels: Record<string, { label: string; sku: string }> = {
   "white-stone": { label: "Blat white stone", sku: "BL-WHITE-STONE" },
 };
 
+const worktopFinishes=Array.from(new Set(worktopCuts.map(c=>c.finish)));
 const worktopItem =
-  stockByFinish.length>1 ? {label:"Blat - finisaje mixte",sku:"BL-MIXT"} : worktopLabels[stockByFinish[0]?.finish??colorway.worktop] ?? worktopLabels.stejar;
+  worktopFinishes.length>1 ? {label:"Blat - finisaje mixte",sku:"BL-MIXT"} : worktopLabels[stockByFinish[0]?.finish??worktopFinishes[0]??colorway.worktop] ?? worktopLabels.stejar;
 
 
 if(worktopLengthCm>0){
@@ -245,7 +246,7 @@ y+=worktopRowHeight;
     ["Subtotal corpuri TVA inclus", cabinetSubtotal],
     ...(opts.includeCabinetTotal ? [
       ["Blat", worktopPrice],
-      [cabinets.some(c=>c.pricePending) ? "TOTAL PARTIAL (preturi neconfirmate)" : "TOTAL CORPURI + BLAT", total],
+      [(cabinets.some(c=>c.pricePending)||worktopPricePending) ? "TOTAL PARTIAL (preturi neconfirmate)" : "TOTAL CORPURI + BLAT", total],
     ] as [string, number][] : []),
   ];
   for (const [label, value] of rows) {

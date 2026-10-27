@@ -52,24 +52,32 @@ export function calculateExportPricing(cabinets: Cabinet[], layout: LayoutType, 
     const spans=(["A","B","C","I","P"] as const).flatMap(wall=>{const span=replaced.has(wall)?undefined:automaticWorktopSpan(cabinets,wall);return span?[{run:wall==="I"?"Insula":wall==="P"?"Peninsula":wall,lengthCm:span.lengthCm}]:[];});
     const aSpan=replaced.has("A")?undefined:automaticWorktopSpan(cabinets,"A");
     const rSpan=replaced.has(returnRun as Cabinet["wall"])?undefined:automaticWorktopSpan(cabinets,returnRun as Cabinet["wall"]);
-    const crossStart=returnRun==="B"?0:dimensions.wallA-60;
-    const overlapX=aSpan?Math.max(0,Math.min(aSpan.startCm+aSpan.lengthCm,crossStart+60)-Math.max(aSpan.startCm,crossStart)):0;
-    const overlapZ=rSpan?Math.max(0,Math.min(rSpan.startCm+rSpan.lengthCm,60)-Math.max(rSpan.startCm,0)):0;
-    jointOverlapCm=layout==="l-shape"?overlapX*overlapZ/60:0;
+    const crossDepth=rSpan?.depthCm??60,aDepth=aSpan?.depthCm??60;
+    const crossStart=returnRun==="B"?0:dimensions.wallA-crossDepth;
+    const overlapX=aSpan?Math.max(0,Math.min(aSpan.startCm+aSpan.lengthCm,crossStart+crossDepth)-Math.max(aSpan.startCm,crossStart)):0;
+    const overlapZ=rSpan?Math.max(0,Math.min(rSpan.startCm+rSpan.lengthCm,aDepth)-Math.max(rSpan.startCm,0)):0;
+    jointOverlapCm=layout==="l-shape"?overlapX*overlapZ/crossDepth:0;
     worktopCuts=spans.map(s=>({...s,lengthCm:s.run===returnRun?Math.max(0,s.lengthCm-jointOverlapCm):s.lengthCm})).filter(s=>s.lengthCm>0);
   }
-  const billedCuts = worktopCuts.filter(c => !replaced.has((c.run === "Insula" ? "I" : c.run === "Peninsula" ? "P" : c.run) as Cabinet["wall"]));
+  const billedCuts = worktopCuts.filter(c => !replaced.has((c.run === "Insula" ? "I" : c.run === "Peninsula" ? "P" : c.run) as Cabinet["wall"])).map(c=>{
+    const wall=(c.run==="Insula"?"I":c.run==="Peninsula"?"P":c.run) as Cabinet["wall"];
+    const span=automaticWorktopSpan(cabinets,wall),depthCm=span?.depthCm??60,thicknessCm=span?.thicknessCm??3.8;
+    const amount=span?.manualPrice,manualPrice=amount!=null&&Number.isFinite(amount)&&amount>=0?amount:undefined;
+    const stock=depthCm>0&&depthCm<=60&&Math.abs(thicknessCm-3.8)<.001;
+    const finish=cabinets.find(item=>item.wall===wall&&isWorktopSupport(item)&&item.runWorktopOverride)?.runWorktopOverride?.worktop??globalWorktop;
+    return {...c,depthCm,thicknessCm,manualPrice,stock:stock&&manualPrice==null,pricePending:!stock&&manualPrice==null,finish};
+  });
   const worktopLengthCm=money(billedCuts.reduce((s,c)=>s+c.lengthCm,0));
   const finishGroups=new Map<string,number[]>();
-  for(const cut of billedCuts){
-    const wall=cut.run==="Insula"?"I":cut.run==="Peninsula"?"P":cut.run;
-    const finish=cabinets.find(c=>c.wall===wall&&c.type?.startsWith("base")&&c.runWorktopOverride)?.runWorktopOverride?.worktop??globalWorktop;
-    finishGroups.set(finish,[...(finishGroups.get(finish)??[]),cut.lengthCm]);
+  for(const cut of billedCuts.filter(c=>c.stock)){
+    finishGroups.set(cut.finish,[...(finishGroups.get(cut.finish)??[]),cut.lengthCm]);
   }
   const stockByFinish=Array.from(finishGroups,([finish,lengths])=>({finish,...allocateWorktopBoards(lengths)}));
   const allocation={fullWorktops:stockByFinish.reduce((s,g)=>s+g.fullWorktops,0),halfWorktops:stockByFinish.reduce((s,g)=>s+g.halfWorktops,0),stockLengthCm:stockByFinish.reduce((s,g)=>s+g.stockLengthCm,0),boards:stockByFinish.flatMap(g=>g.boards)};
-  const worktopPrice=allocation.fullWorktops*FULL_WORKTOP_PRICE+allocation.halfWorktops*HALF_WORKTOP_PRICE;
+  const worktopPrice=money(allocation.fullWorktops*FULL_WORKTOP_PRICE+allocation.halfWorktops*HALF_WORKTOP_PRICE+billedCuts.reduce((sum,c)=>sum+(c.manualPrice??0),0));
+  const worktopPricePending=billedCuts.some(c=>c.pricePending),stockCutLengthCm=money(billedCuts.filter(c=>c.stock).reduce((sum,c)=>sum+c.lengthCm,0));
   const cabinetSubtotal=money(cabinets.reduce((s,c)=>s+(c.price??0),0));
-  const worktopDescription=[allocation.fullWorktops?`${allocation.fullWorktops} x 410 cm`:"",allocation.halfWorktops?`${allocation.halfWorktops} x 205 cm`:""].filter(Boolean).join(" + ")||"Fara blat";
-  return {cabinetSubtotal,worktopLengthCm,worktopPrice,worktopDescription,worktopCuts:billedCuts,jointOverlapCm,stockByFinish,...allocation,total:money(cabinetSubtotal+worktopPrice)};
+  const customCuts=billedCuts.filter(c=>!c.stock);
+  const worktopDescription=[allocation.fullWorktops?`${allocation.fullWorktops} x 410 cm`:"",allocation.halfWorktops?`${allocation.halfWorktops} x 205 cm`:"",customCuts.length?`${customCuts.length} tronson(e) la comanda${worktopPricePending?" - pret de confirmat":""}`:""].filter(Boolean).join(" + ")||"Fara blat";
+  return {worktopPricePending,stockCutLengthCm,cabinetSubtotal,worktopLengthCm,worktopPrice,worktopDescription,worktopCuts:billedCuts,jointOverlapCm,stockByFinish,...allocation,total:money(cabinetSubtotal+worktopPrice)};
 }

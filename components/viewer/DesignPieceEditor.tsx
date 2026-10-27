@@ -1,13 +1,13 @@
 "use client";
 import { useState } from 'react';
 import type { Cabinet, CabinetBand, Colorway, DesignCollectionId, DesignPieceKind, WallDimensions, WallSide } from '@/types/kitchen';
-import { createDesignPiece, designPieceCenter, effectiveCabinetColorway, priceDesignPiece, validateDesignPiece } from '@/lib/asab/designPieces';
+import { createDesignPiece, freeDesignPiece, designPieceCenter, effectiveCabinetColorway, priceDesignPiece, validateDesignPiece } from '@/lib/asab/designPieces';
 import { automaticWorktopSpan, isWorktopSupport, validateWorktopRun } from '@/lib/asab/worktopRuns';
 import { COLORWAYS, HANDLE_OPTIONS, WORKTOP_OPTIONS } from '@/data/colorways';
 
 type Props={cabinets:Cabinet[];colorway:Colorway;dimensions:WallDimensions;collection:DesignCollectionId;wall:WallSide;walls:WallSide[];selectedId?:string;className?:string;onCommit:(items:Cabinet[],selected?:Cabinet|null)=>void;onSelect:(c:Cabinet)=>void};
 export default function DesignPieceEditor(p:Props){
- const [band,setBand]=useState<CabinetBand>('base'),[error,setError]=useState('');
+ const [band,setBand]=useState<CabinetBand>('base'),[newPlacement,setNewPlacement]=useState<'wall'|'free'>('wall'),[error,setError]=useState('');
  const selected=p.cabinets.find(c=>c.id===p.selectedId), finish=selected?effectiveCabinetColorway(selected,p.colorway):p.colorway;
  function save(c:Cabinet){
    const problem=validateDesignPiece(c,p.dimensions);if(problem){setError(problem);return;}
@@ -17,7 +17,7 @@ export default function DesignPieceEditor(p:Props){
  }
  function add(kind:DesignPieceKind){
    let c=createDesignPiece(kind,band,p.wall,crypto.randomUUID());
-   if(kind==='worktop')c={...c,placementMode:'free',freePosition:{x:p.dimensions.wallA/2,z:(p.dimensions.wallB??220)/2},rotationYDegrees:0};
+   if(kind==='worktop'||newPlacement==='free')c=freeDesignPiece(c,p.dimensions);
    // Find the first free slot at the same elevation, without shifting existing cabinets.
    else {
      const length=p.wall==='A'?p.dimensions.wallA:p.dimensions.wallB??220;
@@ -26,7 +26,7 @@ export default function DesignPieceEditor(p:Props){
        const bottom=c.mountHeightCm??0;
        if(!p.cabinets.some(other=>other.placementMode!=='free'&&other.wall===c.wall&&x<other.xPos+other.width&&x+c.width>other.xPos&&bottom<(other.mountHeightCm??(other.type.startsWith('wall')?220-other.height:0))+other.height&&bottom+c.height>(other.mountHeightCm??(other.type.startsWith('wall')?220-other.height:0)))){c.xPos=Math.round(x*10)/10;found=true;break;}
      }
-     if(!found){setError('Nu exista spatiu liber pe peretele selectat. Alegeti alt perete sau eliberati spatiu.');return;}
+     if(!found){setError('Nu exista spatiu liber pe peretele selectat. Alegeti amplasare Libera pentru o piesa independenta sau alegeti alt perete.');return;}
    }
    const problem=validateDesignPiece(c,p.dimensions);if(problem){setError(problem);return;}
    c=priceDesignPiece(c,p.collection);p.onCommit([...p.cabinets,c],c);p.onSelect(c);setError('');
@@ -36,9 +36,9 @@ export default function DesignPieceEditor(p:Props){
   <summary className="cursor-pointer text-sm font-semibold">Piese si finisaje individuale{p.cabinets.some(c=>c.pricePending)?" · preturi de confirmat":""}</summary>
   <div className="space-y-3 pt-3 text-xs">
    <label className="block">Inaltime piese noi<select aria-label="Gama piesei" value={band} onChange={e=>setBand(e.target.value as CabinetBand)} className="mt-1 w-full rounded border p-2"><option value="base">Inferioare · 862 mm</option><option value="wall">Suspendate · 700 mm, cota 1500</option><option value="tall">Coloane · 2200 mm</option></select></label>
+   <label className="block">Amplasare piese noi<select aria-label="Amplasare piese noi" value={newPlacement} onChange={e=>{setNewPlacement(e.target.value as 'wall'|'free');setError('');}} className="mt-1 w-full rounded border p-2"><option value="wall">La perete</option><option value="free">Libera · in camera</option></select></label>
    <p>Perete {p.wall}. Filler frontal / panou lateral pe intreaga inaltime. Dimensiunile pot fi ajustate dupa adaugare.</p>
    <div className="flex flex-wrap gap-2">{(['filler','end-panel','worktop'] as const).map(kind=><button key={kind} type="button" onClick={()=>add(kind)} className="rounded border px-2 py-2 font-semibold">{kind==='filler'?'+ Filler':kind==='end-panel'?'+ Panou lateral':'+ Blat liber'}</button>)}</div>
-   <WallWorktopEditor {...p} />
    <label className="block">Selecteaza piesa / corp<select aria-label="Piesa pentru finisaj" value={selected?.id??''} onChange={e=>{const c=p.cabinets.find(c=>c.id===e.target.value);if(c){p.onSelect(c);setError('');}}} className="mt-1 w-full rounded border p-2"><option value="">Alegeti un corp</option>{p.cabinets.map((c,i)=><option key={c.id??i} value={c.id}>{i+1}. {c.label??c.sku} · {c.wall}</option>)}</select></label>
    {selected&&<>
     <p className="break-all font-semibold">{selected.displaySku??selected.sku}</p>
@@ -83,20 +83,23 @@ export default function DesignPieceEditor(p:Props){
  </details>;
 }
 
-function WallWorktopEditor(p:Props){
+export function WallWorktopEditor(p:Props){
  const [error,setError]=useState('');
- return <details className="rounded border p-2"><summary className="cursor-pointer font-semibold">Blaturi automate pe pereti · mm</summary><div className="space-y-2 pt-2">{p.walls.map(wall=>{
+ return <details className={p.className??"rounded-xl border bg-white p-3"}><summary className="cursor-pointer text-sm font-semibold">Dimensiuni blat pe perete</summary><div className="space-y-2 pt-2">{p.walls.map(wall=>{
    const span=automaticWorktopSpan(p.cabinets,wall);if(!span)return null;
    const replaced=p.cabinets.some(c=>c.designPiece?.replacesRun===wall);
-   return <form key={`${wall}-${span.startCm}-${span.lengthCm}-${span.custom}`} onSubmit={e=>{
-    e.preventDefault();const data=new FormData(e.currentTarget),startCm=Number(data.get('start'))/10,lengthCm=Number(data.get('length'))/10;
-    const problem=validateWorktopRun(startCm,lengthCm,wall==='A'?p.dimensions.wallA:wall==='I'?p.dimensions.wallA:p.dimensions.wallB??220);
+   return <form key={`${wall}-${span.startCm}-${span.lengthCm}-${span.depthCm}-${span.thicknessCm}-${span.manualPrice}-${span.custom}`} onSubmit={e=>{
+    e.preventDefault();const data=new FormData(e.currentTarget),startCm=Number(data.get('start'))/10,lengthCm=Number(data.get('length'))/10,depthCm=Number(data.get('depth'))/10,thicknessCm=Number(data.get('thickness'))/10,manualPrice=String(data.get('price')).trim()===''?undefined:Number(data.get('price'));
+    const problem=validateWorktopRun(startCm,lengthCm,wall==='A'?p.dimensions.wallA:wall==='I'?p.dimensions.wallA:p.dimensions.wallB??220,depthCm,thicknessCm,wall==='A'||wall==='I'?p.dimensions.wallB??220:p.dimensions.wallA,manualPrice);
     if(problem){setError(problem);return;}
-    p.onCommit(p.cabinets.map(c=>c.wall===wall&&isWorktopSupport(c)?{...c,runWorktopDimensions:{startCm,lengthCm}}:c));setError('');
+    p.onCommit(p.cabinets.map(c=>c.wall===wall&&isWorktopSupport(c)?{...c,runWorktopDimensions:{startCm,lengthCm,depthCm,thicknessCm,manualPrice}}:c));setError('');
    }} className="space-y-2 rounded bg-gray-50 p-2">
-    <p className="font-semibold">Perete {wall}{span.custom?' · manual':' · automat'}{replaced?' · inlocuit de blat independent':''}</p>
+    <p className="font-semibold">Perete {wall} · dimensiuni in mm{span.custom?' · manual':' · automat'}{replaced?' · inlocuit de blat independent':''}</p>
     <div className="grid grid-cols-2 gap-2"><label>Inceput<input aria-label={`Inceput blat ${wall}`} name="start" type="number" step="1" required defaultValue={Math.round(span.startCm*10)} className="w-full rounded border p-1" /></label><label>Lungime<input aria-label={`Lungime blat ${wall}`} name="length" type="number" step="1" min="1" required defaultValue={Math.round(span.lengthCm*10)} className="w-full rounded border p-1" /></label></div>
+    <div className="grid grid-cols-2 gap-2"><label>Adancime<input aria-label={`Adancime blat ${wall}`} name="depth" type="number" step="1" min="1" required defaultValue={Math.round(span.depthCm*10)} className="w-full rounded border p-1" /></label><label>Grosime<input aria-label={`Grosime blat ${wall}`} name="thickness" type="number" step="1" min="1" required defaultValue={Math.round(span.thicknessCm*10)} className="w-full rounded border p-1" /></label></div>
+    <label className="block">Pret manual tronson TVA inclus (RON)<input aria-label={`Pret manual blat ${wall}`} name="price" type="number" min="0" step="0.01" defaultValue={span.manualPrice??''} placeholder="Gol = pret stoc / de confirmat" className="w-full rounded border p-1" /></label>
+    {(span.depthCm>60||Math.abs(span.thicknessCm-3.8)>.001)&&span.manualPrice==null&&<p role="status" className="rounded bg-amber-50 p-2 text-amber-900">Blat {wall}: pret de confirmat. Totalul este partial.</p>}
     <div className="flex gap-2"><button className="rounded border bg-white p-2" disabled={replaced}>Aplica blat {wall}</button><button type="button" className="underline" onClick={()=>{p.onCommit(p.cabinets.map(c=>c.wall===wall?{...c,runWorktopDimensions:undefined}:c));setError('');}}>Automat {wall}</button></div>
    </form>;
- })}<p>In modul automat, blatul urmareste corpurile inferioare, fillerele si panourile laterale. Modificarea manuala ramane pana la resetarea pe Automat. Racordul de colt este dedus o singura data la pret.</p>{error&&<p role="alert" className="text-red-700">{error}</p>}</div></details>;
+ })}<p>Stoc: adancime pana la 600 mm si grosime 38 mm. Alte dimensiuni necesita pret manual pe tronson; pana atunci, totalul este partial.</p><p>In modul automat, blatul urmareste corpurile inferioare, fillerele si panourile laterale. Modificarea manuala ramane pana la resetarea pe Automat. Racordul de colt este dedus o singura data la pret.</p>{error&&<p role="alert" className="text-red-700">{error}</p>}</div></details>;
 }

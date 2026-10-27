@@ -10,9 +10,11 @@ export function automaticWorktopSpan(cabinets:Cabinet[],wall:WallSide) {
  const cornerAllowance=(wall==='B'||wall==='C')&&supports.some(c=>c.type==='base-corner')?5:0;
  const startCm=custom?.startCm??Math.min(...supports.map(c=>c.xPos)) - cornerAllowance;
  const lengthCm=custom?.lengthCm??Math.max(...supports.map(c=>c.xPos+c.width))-startCm;
- return {startCm,lengthCm,custom:!!custom};
+ return {startCm,lengthCm,depthCm:custom?.depthCm??60,thicknessCm:custom?.thicknessCm??3.8,manualPrice:custom?.manualPrice,custom:!!custom};
 }
-export function validateWorktopRun(startCm:number,lengthCm:number,wallLengthCm:number):string|undefined {
+export function validateWorktopRun(startCm:number,lengthCm:number,wallLengthCm:number,depthCm=60,thicknessCm=3.8,roomDepthCm=300,manualPrice?:number):string|undefined {
+ if(!Number.isFinite(depthCm)||!Number.isFinite(thicknessCm)||depthCm<=0||depthCm>Math.min(300,roomDepthCm)||thicknessCm<=0||thicknessCm>30)return 'Adancimea trebuie sa incapa in camera (maxim 3000 mm), iar grosimea trebuie sa fie intre 1 si 300 mm.';
+ if(manualPrice!=null&&(!Number.isFinite(manualPrice)||manualPrice<0))return 'Pretul manual trebuie sa fie pozitiv sau zero.';
  if(!Number.isFinite(startCm)||!Number.isFinite(lengthCm)||startCm< -5||lengthCm<=0||startCm+lengthCm>wallLengthCm+.001)return 'Tronsonul trebuie sa aiba lungime pozitiva si sa se incadreze pe perete (maxim 50 mm racord la colt).';
 }
 

@@ -36,3 +36,14 @@ assert.throws(()=>store.getState().restoreCabinets([{sku:sp.sku,type:'wall',widt
 for(const configuration of [{internalPreview:true},{collection:'smart'},{cabinets:[{sku:sp.sku}]},{cabinets:[{drainerSku:'ASAB-ACC-SCURG-W0600-COM'}]},{cabinets:[{sku:'2010-jpn',mountHeightCm:150}]}])assert(auth.usesInternalCabinetFeatures(configuration));
 const viewer=fs.readFileSync(path.join(root,'components/viewer/StepViewer.tsx'),'utf8');assert(viewer.includes('enhancedPDF: true'));assert(viewer.includes('const technical = liveScene'));assert(viewer.includes('{isInternal && <button type="button" onClick={() => { setHDRenderTarget("png")'));
 console.log('PASS: signed admin/designer access; expired/forged/absent sessions denied; direct portal/model routes protected; public legacy catalogue; role-expiry reset; new public PDF; HD remains internal.');
+
+const viewerAst=ts.createSourceFile('StepViewer.tsx',viewer,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
+const internalEditors=new Set(['DesignPieceEditor','WallWorktopEditor']),foundEditors=new Set();
+function checkEditorGate(node,guarded=false){
+ const internal=guarded||(ts.isBinaryExpression(node)&&node.operatorToken.kind===ts.SyntaxKind.AmpersandAmpersandToken&&node.left.getText(viewerAst)==='isInternal');
+ if(ts.isJsxSelfClosingElement(node)&&internalEditors.has(node.tagName.getText(viewerAst))){assert(internal,'Piece and worktop controls require the internal role gate');foundEditors.add(node.tagName.getText(viewerAst));}
+ ts.forEachChild(node,child=>checkEditorGate(child,internal));
+}
+checkEditorGate(viewerAst);assert.equal(foundEditors.size,2);
+for(const cabinet of [{designPiece:{kind:'end-panel',band:'base'},placementMode:'free',freePosition:{x:100,z:100}},{runWorktopDimensions:{startCm:0,lengthCm:240,depthCm:65,thicknessCm:4,manualPrice:900}}])assert(auth.usesInternalCabinetFeatures({cabinets:[cabinet]}));
+console.log('PASS: both editor components are role-gated and free panels/custom worktop dimensions are classified as internal configurations.');

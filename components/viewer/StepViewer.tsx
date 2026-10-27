@@ -1,5 +1,6 @@
 "use client";
-import DesignPieceEditor from "./DesignPieceEditor";
+import { calculateExportPricing } from "@/lib/pricing/exportPricing";
+import DesignPieceEditor, { WallWorktopEditor } from "./DesignPieceEditor";
 import InternalRoomHeightControl from "./InternalRoomHeightControl";
 import { cabinetVerticalRange, cabinetWallGapCm } from '@/lib/asab/cabinetPlacement';
 import { compatibleDrainer, nativeModel } from "@/lib/catalog/nativeCatalogue";
@@ -546,7 +547,10 @@ export default function StepViewer() {
       )}
       {isInternal && hdRenderOpen && liveScene && <HDRenderDialog corner={layout === "l-shape" ? dimensions.cornerSide ?? "right" : undefined} target={hdRenderTarget} settings={hdSettings} onSettings={setHDSettings} images={hdImages} onImage={rememberHD} onPPTX={images => handleExportPDF(internalCustomer.name, "", internalCustomer.phone, "pptx", images, internalCustomer.city)} scene={liveScene} expectedCabinets={cabinets.length} rightCorner={cabinets.some(c => c.wall === "C")} onClose={() => setHDRenderOpen(false)} />}
       {exportError && <div role="alert" className="absolute top-28 inset-x-4 z-50 rounded-xl bg-red-50 p-3 text-sm text-red-700">{exportError}</div>}
-      {isInternal && <DesignPieceEditor cabinets={cabinets} colorway={colorway} className={adminDesktop ? "rounded-xl border bg-white p-3" : "absolute top-40 left-4 z-[95] w-80 max-h-[65vh] overflow-auto rounded-xl bg-white p-3 shadow-lg"} dimensions={dimensions} collection={collection} wall={editWall} walls={editableWalls.map(w=>w.id)} selectedId={activeSelectedCabinet?.id} onCommit={commitCabinets} onSelect={cab=>{setEditWall(cab.wall);setSelectedCabinetKey(cabinetKey(cab));}} />}
+      {isInternal && <div className={adminDesktop ? "space-y-3" : "absolute top-40 left-4 z-[95] w-80 max-h-[65vh] space-y-3 overflow-auto rounded-xl bg-white p-3 shadow-lg"}>
+      <WallWorktopEditor cabinets={cabinets} colorway={colorway} className="rounded-xl border bg-white p-3" dimensions={dimensions} collection={collection} wall={editWall} walls={editableWalls.map(w=>w.id)} selectedId={activeSelectedCabinet?.id} onCommit={commitCabinets} onSelect={cab=>{setEditWall(cab.wall);setSelectedCabinetKey(cabinetKey(cab));}} />
+      <DesignPieceEditor cabinets={cabinets} colorway={colorway} className="rounded-xl border bg-white p-3" dimensions={dimensions} collection={collection} wall={editWall} walls={editableWalls.map(w=>w.id)} selectedId={activeSelectedCabinet?.id} onCommit={commitCabinets} onSelect={cab=>{setEditWall(cab.wall);setSelectedCabinetKey(cabinetKey(cab));}} />
+      </div>}
       {isInternal && cabinets.some(c => compatibleDrainer(c, collection)) && <details className={adminDesktop ? "rounded-xl border bg-white p-3" : "absolute bottom-24 right-4 z-40 max-h-64 w-72 overflow-auto rounded-xl bg-white p-3 shadow"}>
         <summary className="cursor-pointer text-sm font-semibold">Scurgatoare incorporate</summary>
         <div className="space-y-3 pt-3">{cabinets.map(c => {
@@ -714,7 +718,7 @@ export default function StepViewer() {
                 className="py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600">
                 {exporting ? "PDF..." : "Salveaza PDF"}
               </button>
-              <button disabled={isInternal && cabinets.some(c=>c.pricePending)} onClick={() => setStep("cart")} className="py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold">
+              <button disabled={isInternal && (cabinets.some(c=>c.pricePending) || calculateExportPricing(cabinets,layout,dimensions,colorway.worktop).worktopPricePending)} onClick={() => setStep("cart")} className="py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold">
                 Afla pretul
               </button>
             </div>
